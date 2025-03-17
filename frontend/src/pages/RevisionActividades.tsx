@@ -23,7 +23,10 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  Avatar
+  Avatar,
+  FormControl,
+  InputLabel,
+  Select
 } from '@mui/material';
 import { 
   CalendarToday as CalendarTodayIcon,
@@ -88,11 +91,11 @@ const RevisionActividades = () => {
   const [filtros, setFiltros] = useState<FiltroActividades>({
     fechaInicio: format(new Date(new Date().setMonth(new Date().getMonth() - 1)), 'yyyy-MM-dd'),
     fechaFin: format(new Date(), 'yyyy-MM-dd'),
-    busqueda: '', // Inicializamos el campo de búsqueda vacío
-    // No filtramos por estado ni usuario ni proyecto por defecto
+    busqueda: '',
   });
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
-  
+  const [proyectosSupervisado, setProyectosSupervisado] = useState<Array<{ id: string; nombre: string }>>([]);
+
   // Filtrar actividades en tiempo real según la búsqueda
   const actividadesFiltradas = useMemo(() => {
     if (!filtros.busqueda) return actividades;
@@ -216,6 +219,22 @@ const RevisionActividades = () => {
     fetchSupervisados();
   }, []);
 
+  // Función para obtener los proyectos de un supervisado
+  const obtenerProyectosSupervisado = async (usuarioId: string) => {
+    try {
+      const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PROYECTOS.BY_USUARIO(usuarioId)}`;
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: 'Bearer ' + Cookies.get('auth_token')
+        }
+      });
+      setProyectosSupervisado(response.data.proyectos || []);
+    } catch (error) {
+      console.error('Error al obtener proyectos del supervisado:', error);
+      setProyectosSupervisado([]);
+    }
+  };
+
   // Formatear fecha
   const formatearFecha = (fecha: string) => {
     return format(new Date(fecha), 'dd MMM yyyy', { locale: es });
@@ -248,12 +267,23 @@ const RevisionActividades = () => {
 
   // Manejar actualización de filtros
   const actualizarFiltros = (nuevosFiltros: Partial<FiltroActividades>) => {
-    setFiltros(prevFiltros => ({
-      ...prevFiltros,
-      ...nuevosFiltros
-    }));
+    setFiltros(prev => {
+      const actualizados = { ...prev, ...nuevosFiltros };
+      
+      // Si se cambia el usuario, limpiar el proyecto seleccionado
+      if (nuevosFiltros.usuario !== prev.usuario) {
+        actualizados.proyecto = undefined;
+        // Obtener proyectos del nuevo usuario seleccionado
+        if (nuevosFiltros.usuario) {
+          obtenerProyectosSupervisado(nuevosFiltros.usuario);
+        } else {
+          setProyectosSupervisado([]);
+        }
+      }
+      
+      return actualizados;
+    });
   };
-
 
   // Manejar click en ver detalle
   const handleVerDetalle = (actividad: Actividad) => {
@@ -286,6 +316,7 @@ const RevisionActividades = () => {
         open={verDetalleDialogo}
         onClose={() => setVerDetalleDialogo(false)}
         actividad={actividadSeleccionada}
+        esEditable={false} // No permitir edición en la vista de supervisor
       />
     );
   };
@@ -296,62 +327,38 @@ const RevisionActividades = () => {
       <Collapse in={mostrarFiltros} timeout="auto">
         <Paper
           sx={{
-            p: 3,
-            mb: 3,
-            borderRadius: '16px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+            p: 2,
+            mb: 2,
+            borderRadius: '12px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
             background: alpha(theme.palette.background.paper, 0.8),
             backdropFilter: 'blur(8px)',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <Avatar
-              sx={{
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                color: theme.palette.primary.main,
-                mr: 2,
-              }}
-            >
-              <FilterListIcon />
-            </Avatar>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Filtros avanzados
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Refina tu búsqueda usando los siguientes filtros
-              </Typography>
-            </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <FilterListIcon sx={{ color: theme.palette.primary.main, mr: 1 }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              Filtros
+            </Typography>
           </Box>
           
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
               <TextField
                 label="Fecha inicio"
                 type="date"
                 fullWidth
+                size="small"
                 value={filtros.fechaInicio || ''}
                 onChange={(e) => actualizarFiltros({ fechaInicio: e.target.value })}
-                InputLabelProps={{ 
-                  shrink: true,
-                  sx: { fontWeight: 500 }
-                }}
+                InputLabelProps={{ shrink: true }}
                 InputProps={{
-                  sx: {
-                    borderRadius: '12px',
-                    bgcolor: 'background.paper',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: alpha(theme.palette.divider, 0.2),
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: theme.palette.primary.main,
-                    },
-                  },
                   startAdornment: (
                     <InputAdornment position="start">
-                      <CalendarTodayIcon sx={{ color: theme.palette.text.secondary }} />
+                      <CalendarTodayIcon sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
                     </InputAdornment>
                   ),
+                  sx: { borderRadius: '8px' }
                 }}
               />
             </Grid>
@@ -361,83 +368,69 @@ const RevisionActividades = () => {
                 label="Fecha fin"
                 type="date"
                 fullWidth
+                size="small"
                 value={filtros.fechaFin || ''}
                 onChange={(e) => actualizarFiltros({ fechaFin: e.target.value })}
-                InputLabelProps={{ 
-                  shrink: true,
-                  sx: { fontWeight: 500 }
-                }}
+                InputLabelProps={{ shrink: true }}
                 InputProps={{
-                  sx: {
-                    borderRadius: '12px',
-                    bgcolor: 'background.paper',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: alpha(theme.palette.divider, 0.2),
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: theme.palette.primary.main,
-                    },
-                  },
                   startAdornment: (
                     <InputAdornment position="start">
-                      <CalendarTodayIcon sx={{ color: theme.palette.text.secondary }} />
+                      <CalendarTodayIcon sx={{ fontSize: 18, color: theme.palette.text.secondary }} />
                     </InputAdornment>
                   ),
+                  sx: { borderRadius: '8px' }
                 }}
               />
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                select
-                label="Supervisado"
-                fullWidth
-                value={filtros.supervisado || ''}
-                onChange={(e) => actualizarFiltros({ supervisado: e.target.value })}
-                InputLabelProps={{ 
-                  sx: { fontWeight: 500 }
-                }}
-                InputProps={{
-                  sx: {
-                    borderRadius: '12px',
-                    bgcolor: 'background.paper',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: alpha(theme.palette.divider, 0.2),
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: theme.palette.primary.main,
-                    },
-                  }
-                }}
-              >
-                <MenuItem value="">
-                  <em>Todos los supervisados</em>
-                </MenuItem>
-                {supervisados.map((supervisado) => (
-                  <MenuItem key={supervisado.id} value={supervisado.id}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Avatar 
-                        sx={{ 
-                          width: 24,
-                          height: 24,
-                          mr: 1,
-                          fontSize: '0.75rem',
-                          bgcolor: theme.palette.primary.main
-                        }}
-                      >
-                        {supervisado.nombres.charAt(0)}{supervisado.appaterno.charAt(0)}
-                      </Avatar>
+              <FormControl fullWidth size="small">
+                <InputLabel>Supervisado</InputLabel>
+                <Select
+                  value={filtros.usuario || ''}
+                  label="Supervisado"
+                  onChange={(e) => actualizarFiltros({ usuario: e.target.value })}
+                  sx={{ borderRadius: '8px' }}
+                >
+                  <MenuItem value="">Todos</MenuItem>
+                  {supervisados.map((supervisado) => (
+                    <MenuItem key={supervisado.id} value={supervisado.id}>
                       {`${supervisado.nombres} ${supervisado.appaterno}`}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </TextField>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             
-            <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Proyecto</InputLabel>
+                <Select
+                  value={filtros.proyecto || ''}
+                  label="Proyecto"
+                  onChange={(e) => actualizarFiltros({ proyecto: e.target.value })}
+                  disabled={!filtros.usuario || proyectosSupervisado.length === 0}
+                  sx={{ 
+                    borderRadius: '8px',
+                    '&.Mui-disabled': {
+                      bgcolor: alpha(theme.palette.action.disabled, 0.04),
+                    }
+                  }}
+                >
+                  <MenuItem value="">Todos</MenuItem>
+                  {proyectosSupervisado.map((proyecto) => (
+                    <MenuItem key={proyecto.id} value={proyecto.id}>
+                      {proyecto.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
               <Button 
-                fullWidth
                 variant="outlined" 
+                size="small"
                 onClick={() => {
                   setFiltros({
                     fechaInicio: format(new Date(new Date().setDate(new Date().getDate() - 7)), 'yyyy-MM-dd'),
@@ -445,37 +438,16 @@ const RevisionActividades = () => {
                   });
                 }}
                 startIcon={<RefreshIcon />}
-                sx={{ 
-                  borderRadius: '12px',
-                  height: '56px',
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  borderColor: alpha(theme.palette.divider, 0.2),
-                  color: theme.palette.text.secondary,
-                  '&:hover': {
-                    borderColor: theme.palette.primary.main,
-                    bgcolor: alpha(theme.palette.primary.main, 0.02),
-                  },
-                }}
+                sx={{ borderRadius: '8px' }}
               >
                 Restablecer
               </Button>
               <Button 
-                fullWidth
                 variant="contained" 
+                size="small"
                 onClick={cargarActividades}
                 startIcon={<SearchIcon />}
-                sx={{ 
-                  borderRadius: '12px',
-                  height: '56px',
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  '&:hover': {
-                    boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
-                    transform: 'translateY(-1px)',
-                  },
-                }}
+                sx={{ borderRadius: '8px' }}
               >
                 Buscar
               </Button>

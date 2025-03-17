@@ -11,10 +11,5 @@
       "src": "/(.*)",
       "dest": "src/server.ts"
     }
-  ],
-  "installCommand": "npm install",
-  "buildCommand": "npm run build",
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 } 

@@ -571,8 +571,8 @@ class DashboardService {
       
       actividades.forEach(actividad => {
         // Verificar si tenemos la información necesaria del proyecto
-        const proyectoId = actividad.proyecto_id || actividad.proyectoId || actividad.id_proyecto;
-        const proyectoNombre = actividad.proyecto_nombre || actividad.proyectoNombre || actividad.nombre_proyecto || 'Proyecto sin nombre';
+        const proyectoId = actividad.id_proyecto || actividad.proyecto_id || actividad.proyectoId;
+        const proyectoNombre = actividad.proyectos?.nombre || actividad.proyecto_nombre || actividad.nombre_proyecto || 'Sin proyecto asignado';
         
         if (!proyectoId) return;
 
@@ -586,9 +586,16 @@ class DashboardService {
 
         const proyecto = proyectosMap.get(proyectoId);
         
+        // Construir el nombre completo del usuario
+        const nombreCompleto = actividad.usuarios ? 
+          `${actividad.usuarios.nombres || ''} ${actividad.usuarios.appaterno || ''}${actividad.usuarios.apmaterno ? ` ${actividad.usuarios.apmaterno}` : ''}`.trim() :
+          actividad.usuario_nombre || 
+          actividad.nombre_usuario || 
+          'Usuario sin nombre';
+
         // Extraer información de usuario con manejo de diferentes formatos de respuesta
-        const usuarioId = actividad.usuario_id || actividad.usuarioId || actividad.id_usuario;
-        const usuarioNombre = actividad.usuario_nombre || actividad.usuarioNombre || actividad.nombre_usuario || 'Usuario';
+        const usuarioId = actividad.usuario_id || actividad.id_usuario || actividad.usuarioId;
+        const avatar = actividad.usuarios?.avatar || actividad.usuario_avatar || actividad.avatar;
         
         proyecto.actividades.push({
           id: actividad.id || `temp-${Date.now()}-${Math.random()}`,
@@ -597,8 +604,8 @@ class DashboardService {
           hora: actividad.hora_inicio || actividad.horaInicio || actividad.hora || '00:00',
           usuario: {
             id: usuarioId || 'unknown',
-            nombre: usuarioNombre,
-            avatar: actividad.usuario_avatar || actividad.usuarioAvatar || actividad.avatar
+            nombre: nombreCompleto,
+            avatar: avatar
           }
         });
       });

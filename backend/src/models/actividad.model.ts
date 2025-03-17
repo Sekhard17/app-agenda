@@ -8,7 +8,7 @@ import { Actividad, ActividadCrear, ActividadActualizar } from '../types/activid
 export const obtenerActividadPorId = async (id: string) => {
   const { data, error } = await supabase
     .from('actividades')
-    .select('*, proyectos(nombre)')
+    .select('*, proyectos(nombre), usuarios(id, nombres, appaterno, apmaterno, nombre_usuario)')
     .eq('id', id)
     .single()
 
@@ -20,7 +20,7 @@ export const obtenerActividadPorId = async (id: string) => {
 export const obtenerActividadesPorUsuario = async (usuarioId: string, fecha?: Date, estado?: string) => {
   let query = supabase
     .from('actividades')
-    .select('*, proyectos(nombre)')
+    .select('*, proyectos(nombre), usuarios(id, nombres, appaterno, apmaterno, nombre_usuario)')
     .eq('id_usuario', usuarioId)
     .order('fecha', { ascending: false })
     .order('hora_inicio', { ascending: true })
@@ -47,7 +47,7 @@ export const obtenerActividadesPorRango = async (usuarioId: string, fechaInicio:
 
   const { data, error } = await supabase
     .from('actividades')
-    .select('*, proyectos(nombre)')
+    .select('*, proyectos(nombre), usuarios(id, nombres, appaterno, apmaterno, nombre_usuario)')
     .eq('id_usuario', usuarioId)
     .eq('estado', estado)
     .gte('fecha', fechaInicioStr)
