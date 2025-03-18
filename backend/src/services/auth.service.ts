@@ -1,7 +1,6 @@
 // src/services/auth.service.ts
 // Este servicio maneja la lógica de autenticación
 
-import bcrypt from 'bcrypt'
 import jwt, { SignOptions, Secret } from 'jsonwebtoken'
 import config from '../config/config'
 import { UsuarioLogin, UsuarioRegistro } from '../types/usuario.types'
