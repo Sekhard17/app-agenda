@@ -150,6 +150,9 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
 
+  // Añadir un nuevo estado para manejar la carga de documentos
+  const [cargandoDocumentos, setCargandoDocumentos] = useState(false);
+
   // Función para mostrar notificaciones
   const mostrarSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
     setSnackbar({
@@ -165,9 +168,34 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
   };
 
   // Manejar ver detalle de actividad
-  const handleVerActividad = (actividad: any) => {
-    setActividadSeleccionada(actividad);
-    setVerDetalleDialogo(true);
+  const handleVerActividad = async (actividad: any) => {
+    try {
+      setCargandoDocumentos(true);
+      // Obtener los documentos de la actividad antes de mostrar el modal
+      const documentos = await ProyectosService.getDocumentosActividad(actividad.id);
+      
+      // Añadir los documentos al objeto de actividad
+      const actividadConDocumentos = {
+        ...actividad,
+        archivos: documentos.map(doc => ({
+          nombre: doc.nombre_archivo,
+          url: doc.ruta_archivo,
+          tipo: doc.tipo_archivo,
+          tamano: doc.tamaño_bytes
+        }))
+      };
+      
+      setActividadSeleccionada(actividadConDocumentos);
+      setVerDetalleDialogo(true);
+    } catch (error) {
+      console.error('Error al cargar documentos de la actividad:', error);
+      mostrarSnackbar('Error al cargar los documentos adjuntos', 'error');
+      // Mostrar la actividad sin documentos en caso de error
+      setActividadSeleccionada(actividad);
+      setVerDetalleDialogo(true);
+    } finally {
+      setCargandoDocumentos(false);
+    }
   };
 
   // Manejar cierre del modal de detalle
@@ -1047,13 +1075,17 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
       {actividadSeleccionada && (
         <ActividadVisualizador
           open={verDetalleDialogo}
-          onClose={handleCerrarDetalle}
+          onClose={() => {
+            setVerDetalleDialogo(false);
+            setTimeout(() => handleCerrarDetalle(), 300); // Esperar a que termine la animación
+          }}
           actividad={actividadSeleccionada}
           onActualizarActividad={() => {
             handleCerrarDetalle();
             handleEditarActividad(actividadSeleccionada);
           }}
           esEditable={true}
+          cargandoDocumentos={cargandoDocumentos}
         />
       )}
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -14,7 +14,10 @@ import {
   Avatar,
   IconButton,
   Paper,
-  Grid
+  Grid,
+  CircularProgress,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import { 
   CalendarToday as CalendarTodayIcon,
@@ -35,6 +38,7 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Actividad } from '../../services/actividades.service';
+import DocumentosVisualizador from '../documentos/DocumentosVisualizador';
 
 // Extendemos la interfaz de Actividad para incluir archivos adjuntos
 interface ActividadConArchivos extends Actividad {
@@ -52,6 +56,7 @@ interface ActividadVisualizadorProps {
   actividad: ActividadConArchivos;
   esEditable?: boolean;
   onActualizarActividad?: () => void;
+  cargandoDocumentos?: boolean;
 }
 
 const ActividadVisualizador: React.FC<ActividadVisualizadorProps> = ({ 
@@ -59,9 +64,17 @@ const ActividadVisualizador: React.FC<ActividadVisualizadorProps> = ({
   onClose, 
   actividad, 
   esEditable = false,
-  onActualizarActividad 
+  onActualizarActividad,
+  cargandoDocumentos = false
 }) => {
   const theme = useTheme();
+  const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
+
+  // Manejador para cuando ocurre un error al descargar
+  const manejarErrorDescarga = () => {
+    setErrorDescarga('Error al acceder al archivo. El archivo podría no estar disponible.');
+    setTimeout(() => setErrorDescarga(null), 4000);
+  };
 
   // Formatear fecha en formato corto
   const formatearFecha = (fecha: string | Date) => {
@@ -142,6 +155,18 @@ const ActividadVisualizador: React.FC<ActividadVisualizadorProps> = ({
   
   // Verificar si la actividad está en modo sólo lectura
   const esSoloLectura = actividad.estado === 'enviado';
+
+  // Convertir archivos adjuntos al formato esperado por DocumentosVisualizador
+  const archivosToDocumentos = (archivos: any[] = []) => {
+    return archivos.map(archivo => ({
+      id: archivo.id || `doc-${Math.random().toString(36).substring(2)}`,
+      nombre_archivo: archivo.nombre,
+      ruta_archivo: archivo.url,
+      tipo_archivo: archivo.tipo,
+      tamaño_bytes: archivo.tamano,
+      fecha_creacion: new Date()
+    }));
+  };
 
   return (
     <Dialog 
@@ -433,95 +458,20 @@ const ActividadVisualizador: React.FC<ActividadVisualizadorProps> = ({
         )}
 
         {/* Archivos adjuntos (si existen) */}
-        {actividad.archivos && actividad.archivos.length > 0 ? (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <AttachFileIcon fontSize="small" />
-              Archivos Adjuntos ({actividad.archivos.length})
-            </Typography>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 0,
-                borderRadius: '12px',
-                border: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
-                overflow: 'hidden'
-              }}
-            >
-              {actividad.archivos.map((archivo, index) => (
-                <Box 
-                  key={index} 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    p: 2,
-                    bgcolor: index % 2 === 0 ? 'transparent' : alpha(theme.palette.background.default, 0.5),
-                    borderBottom: index < actividad.archivos!.length - 1 ? `1px solid ${alpha(theme.palette.divider, 0.1)}` : 'none'
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar
-                      sx={{
-                        width: 36,
-                        height: 36,
-                        bgcolor: alpha(theme.palette.primary.main, 0.1),
-                        color: theme.palette.primary.main
-                      }}
-                    >
-                      <DescriptionIcon fontSize="small" />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="body2" fontWeight={500}>
-                        {archivo.nombre}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {Math.round(archivo.tamano / 1024)} KB
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <Button 
-                    variant="contained"
-                    size="small"
-                    href={archivo.url}
-                    target="_blank"
-                    startIcon={<DownloadIcon />}
-                    sx={{ 
-                      textTransform: 'none',
-                      borderRadius: '8px',
-                      boxShadow: 'none'
-                    }}
-                  >
-                    Descargar
-                  </Button>
-                </Box>
-              ))}
-            </Paper>
-          </Box>
-        ) : (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <AttachFileIcon fontSize="small" />
-              Archivos Adjuntos
-            </Typography>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                borderRadius: '12px',
-                border: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                bgcolor: alpha(theme.palette.background.default, 0.5),
-              }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                No hay archivos adjuntos
-              </Typography>
-            </Paper>
-          </Box>
-        )}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AttachFileIcon fontSize="small" />
+            Archivos Adjuntos
+            {actividad.archivos && actividad.archivos.length > 0 && ` (${actividad.archivos.length})`}
+          </Typography>
+          
+          <DocumentosVisualizador
+            documentos={archivosToDocumentos(actividad.archivos)}
+            cargando={cargandoDocumentos}
+            mostrarEncabezado={false}
+            mensajeVacio="No hay archivos adjuntos para esta actividad."
+          />
+        </Box>
       </DialogContent>
 
       <DialogActions 
@@ -578,6 +528,22 @@ const ActividadVisualizador: React.FC<ActividadVisualizadorProps> = ({
           </Button>
         )}
       </DialogActions>
+
+      {/* Snackbar para mostrar errores */}
+      <Snackbar
+        open={!!errorDescarga}
+        autoHideDuration={4000}
+        onClose={() => setErrorDescarga(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          severity="error" 
+          onClose={() => setErrorDescarga(null)}
+          sx={{ width: '100%' }}
+        >
+          {errorDescarga}
+        </Alert>
+      </Snackbar>
     </Dialog>
   );
 };

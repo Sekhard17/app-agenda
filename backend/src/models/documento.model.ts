@@ -153,8 +153,8 @@ export interface IDocumento {
   url: string;
   tipo: string;
   tamano: number;
-  id_proyecto: string;
-  id_usuario: string;
+  id_actividad: string;
+  id_usuario?: string;
   fecha_creacion: Date;
   fecha_actualizacion: Date;
 }
@@ -175,18 +175,46 @@ export const obtenerDocumentosPorActividades = async (actividadesIds: string[]) 
 
 // Obtener documentos por proyecto
 export const obtenerDocumentosPorProyecto = async (idProyecto: string): Promise<IDocumento[]> => {
-  const { data, error } = await supabase
-    .from('documentos')
-    .select(`
-      *,
-      usuarios (
-        nombres,
-        appaterno
-      )
-    `)
-    .eq('id_proyecto', idProyecto)
-    .order('fecha_creacion', { ascending: false })
+  try {
+    // Primero obtenemos todas las actividades del proyecto
+    const { data: actividades, error: errorActividades } = await supabase
+      .from('actividades')
+      .select('id')
+      .eq('id_proyecto', idProyecto);
 
-  if (error) throw error
-  return data || []
+    if (errorActividades) throw errorActividades;
+    
+    // Si no hay actividades, retornamos array vacío
+    if (!actividades || actividades.length === 0) {
+      return [];
+    }
+    
+    // Extraemos los IDs de las actividades
+    const actividadesIds = actividades.map(act => act.id);
+    
+    // Ahora buscamos los documentos asociados a esas actividades, incluyendo datos de la actividad
+    const { data, error } = await supabase
+      .from('documentos')
+      .select(`
+        *,
+        actividades (
+          id,
+          descripcion,
+          fecha,
+          usuarios (
+            id,
+            nombres,
+            appaterno
+          )
+        )
+      `)
+      .in('id_actividad', actividadesIds)
+      .order('fecha_creacion', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error en obtenerDocumentosPorProyecto:', error);
+    throw error;
+  }
 }

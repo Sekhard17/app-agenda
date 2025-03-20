@@ -18,7 +18,9 @@ import {
   Tab,
   Snackbar,
   Alert,
-  Slide
+  Slide,
+  CircularProgress,
+  IconButton
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -27,7 +29,6 @@ import {
   Assignment as AssignmentIcon,
   Add as AddIcon,
   Description as DescriptionIcon,
-  History as HistoryIcon,
   Inventory as InventoryIcon,
   Comment as CommentIcon,
   Timeline as TimelineIcon,
@@ -40,7 +41,8 @@ import {
   Schedule as ScheduleIcon,
   Info as InfoIcon,
   Warning as WarningIcon,
-  Error as ErrorIcon
+  Error as ErrorIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import ProyectosService, { Proyecto } from '../services/proyectos.service';
 import { motion } from 'framer-motion';
@@ -49,6 +51,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ActividadesLista from '../components/actividades/ActividadesLista';
 import { TransitionProps } from '@mui/material/transitions';
+import DocumentosVisualizador from '../components/documentos/DocumentosVisualizador';
 
 // Función para formatear fecha
 const formatearFecha = (fecha: string | Date | null | undefined): string => {
@@ -115,39 +118,54 @@ const ActividadesTab: React.FC<TabContentProps & {
   );
 };
 
-const DocumentosTab: React.FC<TabContentProps> = () => {
+const DocumentosTab: React.FC<TabContentProps> = ({ proyecto }) => {
+  const [cargando, setCargando] = useState(false);
+  const [documentos, setDocumentos] = useState<any[]>([]);
+  
+  // Manejador para subir documentos
+  const handleSubirDocumento = () => {
+    // Implementar lógica para subir documentos
+    // Aquí iría el código para abrir un modal de subida de documentos
+  };
+  
+  // Cargar documentos cuando se monta el componente o cambia el proyecto
+  useEffect(() => {
+    let isMounted = true; // Para prevenir actualización de estado si el componente se desmonta
+    
+    const cargarDocumentos = async () => {
+      if (!proyecto || !proyecto.id) return;
+      
+      setCargando(true);
+      try {
+        const docs = await ProyectosService.getDocumentosProyecto(proyecto.id);
+        // Solo actualizar el estado si el componente sigue montado
+        if (isMounted) {
+          setDocumentos(docs);
+          setCargando(false);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setCargando(false);
+        }
+      }
+    };
+    
+    cargarDocumentos();
+    
+    // Cleanup function para prevenir memory leaks
+    return () => {
+      isMounted = false;
+    };
+  }, [proyecto?.id]); // Solo dependemos de proyecto.id en lugar de todo el objeto proyecto
+  
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">
-          Documentos
-        </Typography>
-        <Button 
-          variant="text" 
-          size="small" 
-          startIcon={<AddIcon />}
-          sx={{ textTransform: 'none' }}
-        >
-          Subir Documento
-        </Button>
-      </Box>
-      <Typography color="text.secondary">
-        Contenido de documentos en desarrollo.
-      </Typography>
-    </Box>
-  );
-};
-
-const HistorialTab: React.FC<TabContentProps> = () => {
-  return (
-    <Box>
-      <Typography variant="h6" gutterBottom>
-        Historial de Cambios
-      </Typography>
-      <Typography color="text.secondary">
-        Contenido de historial en desarrollo.
-      </Typography>
-    </Box>
+    <DocumentosVisualizador 
+      documentos={documentos}
+      cargando={cargando}
+      onSubirDocumento={handleSubirDocumento}
+      titulo="Documentos del Proyecto"
+      mensajeVacio="Este proyecto aún no tiene documentos adjuntos. Puedes subir nuevos documentos usando el botón de arriba."
+    />
   );
 };
 
@@ -670,7 +688,7 @@ const ResumenTab: React.FC<{
                     gap: 0.5
                   }}
                 >
-                  <HistoryIcon sx={{ fontSize: '1rem' }} />
+                  <AccessTimeIcon sx={{ fontSize: '1rem' }} />
                   Última Actividad
                 </Typography>
               </Tooltip>
@@ -832,12 +850,6 @@ const DetalleProyecto: React.FC = () => {
       color: theme.palette.info.main
     },
     {
-      id: 'historial',
-      icon: <HistoryIcon />,
-      texto: 'Historial',
-      color: theme.palette.secondary.main
-    },
-    {
       id: 'recursos',
       icon: <InventoryIcon />,
       texto: 'Recursos',
@@ -906,7 +918,6 @@ const DetalleProyecto: React.FC = () => {
           navigate('/portal-proyectos');
         }
       } catch (error) {
-        console.error('Error al cargar detalle del proyecto:', error);
         navigate('/portal-proyectos');
       } finally {
         setCargando(false);
@@ -944,7 +955,6 @@ const DetalleProyecto: React.FC = () => {
         mostrarSnackbar('Información del proyecto actualizada', 'success');
       }
     } catch (error) {
-      console.error('Error al actualizar datos del proyecto:', error);
       mostrarSnackbar('Error al actualizar los datos del proyecto', 'error');
     }
   };
@@ -966,9 +976,6 @@ const DetalleProyecto: React.FC = () => {
         break;
       case 'documentos':
         mostrarSnackbar('Visualizando documentos del proyecto', 'info');
-        break;
-      case 'historial':
-        mostrarSnackbar('Visualizando historial del proyecto', 'info');
         break;
       case 'recursos':
         mostrarSnackbar('Visualizando recursos del proyecto', 'info');
@@ -1028,8 +1035,6 @@ const DetalleProyecto: React.FC = () => {
         />;
       case 'documentos':
         return <DocumentosTab proyecto={proyecto} />;
-      case 'historial':
-        return <HistorialTab proyecto={proyecto} />;
       case 'recursos':
         return <RecursosTab proyecto={proyecto} />;
       case 'comentarios':

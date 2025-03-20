@@ -45,12 +45,23 @@ export interface UsuarioAsignado {
 
 export interface Documento {
   id: string;
-  nombre: string;
-  descripcion?: string;
-  url: string;
-  tipo: string;
+  nombre_archivo: string;
+  ruta_archivo: string;
+  tipo_archivo?: string;
+  tamaño_bytes?: number;
   fecha_creacion: string | Date;
-  usuario_id: string;
+  id_actividad: string;
+  actividades?: {
+    id: string;
+    descripcion: string;
+    fecha: string | Date;
+    usuarios?: {
+      id: string;
+      nombres: string;
+      appaterno: string;
+      avatar?: string;
+    };
+  };
 }
 
 export interface ProyectoResumido {
@@ -82,7 +93,6 @@ class ProyectosService {
       );
       return response.proyectos || [];
     } catch (error) {
-      console.error('Error al obtener proyectos activos:', error);
       return [];
     }
   }
@@ -97,7 +107,6 @@ class ProyectosService {
       );
       return response.proyectos || [];
     } catch (error) {
-      console.error(`Error al obtener proyectos del usuario ${usuarioId}:`, error);
       return [];
     }
   }
@@ -112,7 +121,6 @@ class ProyectosService {
       );
       return response.proyecto || null;
     } catch (error) {
-      console.error(`Error al obtener detalles del proyecto ${proyectoId}:`, error);
       return null;
     }
   }
@@ -137,10 +145,8 @@ class ProyectosService {
         }
       }
       
-      console.warn('Formato de respuesta inesperado:', response);
       return [];
     } catch (error) {
-      console.error(`Error al obtener actividades del proyecto ${proyectoId}:`, error);
       return [];
     }
   }
@@ -153,9 +159,20 @@ class ProyectosService {
       const response = await ApiService.get<{documentos: Documento[]}>(
         `${API_CONFIG.ENDPOINTS.PROYECTOS.BY_ID(proyectoId)}/documentos`
       );
-      return response.documentos || [];
+      
+      // Formatear los documentos si es necesario
+      const docs = response.documentos || [];
+      
+      // Convertir campos de fecha a objetos Date
+      return docs.map(doc => ({
+        ...doc,
+        fecha_creacion: doc.fecha_creacion ? new Date(doc.fecha_creacion) : new Date(),
+        actividades: doc.actividades ? {
+          ...doc.actividades,
+          fecha: doc.actividades.fecha ? new Date(doc.actividades.fecha) : new Date()
+        } : undefined
+      }));
     } catch (error) {
-      console.error(`Error al obtener documentos del proyecto ${proyectoId}:`, error);
       return [];
     }
   }
@@ -170,7 +187,6 @@ class ProyectosService {
       );
       return response.estadisticas || {};
     } catch (error) {
-      console.error(`Error al obtener estadísticas del proyecto ${proyectoId}:`, error);
       return {};
     }
   }
@@ -185,7 +201,32 @@ class ProyectosService {
       );
       return response.proyectos || [];
     } catch (error) {
-      console.error('Error al obtener resumen de proyectos:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Obtiene los documentos asociados a una actividad específica
+   */
+  static async getDocumentosActividad(actividadId: string): Promise<Documento[]> {
+    try {
+      const response = await ApiService.get<{documentos: Documento[]}>(
+        `${API_CONFIG.ENDPOINTS.ACTIVIDADES.BY_ID(actividadId)}/documentos`
+      );
+      
+      // Formatear los documentos si es necesario
+      const docs = response.documentos || [];
+      
+      // Convertir campos de fecha a objetos Date
+      return docs.map(doc => ({
+        ...doc,
+        fecha_creacion: doc.fecha_creacion ? new Date(doc.fecha_creacion) : new Date(),
+        actividades: doc.actividades ? {
+          ...doc.actividades,
+          fecha: doc.actividades.fecha ? new Date(doc.actividades.fecha) : new Date()
+        } : undefined
+      }));
+    } catch (error) {
       return [];
     }
   }

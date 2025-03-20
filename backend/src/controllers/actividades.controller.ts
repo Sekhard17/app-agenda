@@ -318,3 +318,26 @@ export const getActividadesSupervisados = async (req: Request, res: Response) =>
     res.status(500).json({ message: error.message || 'Error al obtener actividades de supervisados' })
   }
 }
+
+// Obtener documentos de una actividad
+export const getDocumentosActividad = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params
+    const usuarioId = req.usuario?.id
+    const esSupervisor = req.usuario?.rol === 'supervisor'
+    
+    if (!usuarioId) {
+      res.status(401).json({ message: 'No autorizado' })
+      return
+    }
+    
+    // Obtener documentos de la actividad
+    const documentos = await documentosService.obtenerDocumentosPorActividad(id, usuarioId, esSupervisor)
+    
+    res.json({ documentos })
+  } catch (error: any) {
+    console.error('Error al obtener documentos de la actividad:', error)
+    res.status(error.message.includes('No tiene permisos') ? 403 : 500)
+      .json({ message: error.message || 'Error al obtener documentos' })
+  }
+}

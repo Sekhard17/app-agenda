@@ -35,6 +35,9 @@ router.get('/', actividadesController.getActividadesUsuario as RequestHandler);
 // Ruta para obtener una actividad específica por ID
 router.get('/:id', actividadesController.getActividad as RequestHandler);
 
+// Ruta para obtener documentos de una actividad
+router.get('/:id/documentos', actividadesController.getDocumentosActividad as RequestHandler);
+
 // Rutas POST y PUT
 router.post('/', 
   validarFechaActividad,
