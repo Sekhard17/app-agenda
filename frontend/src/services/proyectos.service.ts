@@ -25,6 +25,7 @@ export interface Proyecto {
   color?: string | null;
   icono?: string | null;
   ultima_actividad?: {
+    id?: string;
     descripcion: string;
     fecha: string | Date;
     usuario: string;

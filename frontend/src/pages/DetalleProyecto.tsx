@@ -108,12 +108,16 @@ const ProyectoNoEncontrado: React.FC = () => {
 const ActividadesTab: React.FC<TabContentProps & { 
   onRegistrarActividad: () => void;
   shouldRefresh: boolean;
-}> = ({ proyecto, onRegistrarActividad, shouldRefresh }) => {
+  actividadIdParaVer?: string | null;
+  onCerrarDetalleActividad?: () => void;
+}> = ({ proyecto, onRegistrarActividad, shouldRefresh, actividadIdParaVer, onCerrarDetalleActividad }) => {
   return (
     <ActividadesLista 
       proyectoId={proyecto.id} 
       onRegistrarActividad={onRegistrarActividad}
       shouldRefresh={shouldRefresh}
+      actividadIdParaVer={actividadIdParaVer}
+      onCerrarDetalleActividad={onCerrarDetalleActividad}
     />
   );
 };
@@ -221,7 +225,8 @@ const ResumenTab: React.FC<{
   formatearFecha: (fecha: string | Date | null | undefined) => string;
   colorEstado: string;
   getEtiquetaEstado: (estado: string) => string;
-}> = ({ proyecto, formatearFecha, colorEstado, getEtiquetaEstado }) => {
+  onVerDetalleActividad: (actividadId: string) => void;
+}> = ({ proyecto, formatearFecha, colorEstado, getEtiquetaEstado, onVerDetalleActividad }) => {
   const theme = useTheme();
   
   return (
@@ -692,30 +697,42 @@ const ResumenTab: React.FC<{
                   Última Actividad
                 </Typography>
               </Tooltip>
-              <Box
-                sx={{
-                  p: 1.5,
-                  borderRadius: '10px',
-                  bgcolor: alpha(theme.palette.background.paper, 0.4),
-                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                  mb: 1.5
-                }}
-              >
-                {proyecto.ultima_actividad ? (
-                  <>
-                    <Typography variant="body2" gutterBottom>
-                      {proyecto.ultima_actividad.descripcion}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      {formatearFecha(proyecto.ultima_actividad.fecha)} • {proyecto.ultima_actividad.usuario}
-                    </Typography>
-                  </>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    No hay actividades registradas
+              {proyecto.ultima_actividad ? (
+                <Box
+                  onClick={() => {
+                    if (proyecto.ultima_actividad?.id) {
+                      console.log("Activando ID:", proyecto.ultima_actividad.id);
+                      onVerDetalleActividad(proyecto.ultima_actividad.id);
+                    }
+                  }}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: '10px',
+                    bgcolor: alpha(theme.palette.background.paper, 0.4),
+                    border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                    mb: 1.5,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.05),
+                      borderColor: alpha(theme.palette.primary.main, 0.2),
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.08)}`
+                    }
+                  }}
+                >
+                  <Typography variant="body2" gutterBottom>
+                    {proyecto.ultima_actividad.descripcion}
                   </Typography>
-                )}
-              </Box>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {formatearFecha(proyecto.ultima_actividad.fecha)} • {proyecto.ultima_actividad.usuario}
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No hay actividades registradas
+                </Typography>
+              )}
             </Box>
 
             <Box>
@@ -803,6 +820,8 @@ const DetalleProyecto: React.FC = () => {
   const [seccionActual, setSeccionActual] = useState<string>('resumen');
   const [modalActividadAbierto, setModalActividadAbierto] = useState<boolean>(false);
   const [refreshActividades, setRefreshActividades] = useState<boolean>(false);
+  const [activeActividadId, setActiveActividadId] = useState<string | null>(null);
+  const [modalDetalleActividadAbierto, setModalDetalleActividadAbierto] = useState<boolean>(false);
   
   // Estado para las notificaciones toast
   const [snackbar, setSnackbar] = useState<{
@@ -1015,6 +1034,16 @@ const DetalleProyecto: React.FC = () => {
     }
   };
   
+  // Función para abrir modal de detalle de actividad
+  const handleVerDetalleActividad = (actividadId: string) => {
+    console.log("Mostrar actividad:", actividadId);
+    setActiveActividadId(actividadId);
+    // Si estamos en otra sección, cambiar a la sección de actividades
+    if (seccionActual !== 'actividades') {
+      setSeccionActual('actividades');
+    }
+  };
+  
   // Renderizar contenido según sección activa
   const renderContenidoSeccion = () => {
     if (!proyecto) return null;
@@ -1026,12 +1055,15 @@ const DetalleProyecto: React.FC = () => {
           formatearFecha={formatearFecha} 
           colorEstado={colorEstado} 
           getEtiquetaEstado={getEtiquetaEstado}
+          onVerDetalleActividad={handleVerDetalleActividad}
         />;
       case 'actividades':
         return <ActividadesTab 
           proyecto={proyecto} 
           onRegistrarActividad={() => setModalActividadAbierto(true)} 
           shouldRefresh={refreshActividades}
+          actividadIdParaVer={activeActividadId}
+          onCerrarDetalleActividad={() => setActiveActividadId(null)}
         />;
       case 'documentos':
         return <DocumentosTab proyecto={proyecto} />;
@@ -1045,6 +1077,7 @@ const DetalleProyecto: React.FC = () => {
           formatearFecha={formatearFecha} 
           colorEstado={colorEstado} 
           getEtiquetaEstado={getEtiquetaEstado}
+          onVerDetalleActividad={handleVerDetalleActividad}
         />;
     }
   };

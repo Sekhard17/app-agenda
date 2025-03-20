@@ -102,12 +102,16 @@ interface ActividadesListaProps {
   proyectoId: string;
   onRegistrarActividad: () => void;
   shouldRefresh?: boolean;
+  actividadIdParaVer?: string | null;
+  onCerrarDetalleActividad?: () => void;
 }
 
 const ActividadesLista: React.FC<ActividadesListaProps> = ({ 
   proyectoId, 
   onRegistrarActividad,
-  shouldRefresh = false 
+  shouldRefresh = false,
+  actividadIdParaVer = null,
+  onCerrarDetalleActividad
 }) => {
   const theme = useTheme();
   const [viewType, setViewType] = useState<'table' | 'cards'>(() => {
@@ -170,9 +174,12 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
   // Manejar ver detalle de actividad
   const handleVerActividad = async (actividad: any) => {
     try {
+      console.log("Mostrando detalle de actividad:", actividad.id);
       setCargandoDocumentos(true);
+      
       // Obtener los documentos de la actividad antes de mostrar el modal
       const documentos = await ProyectosService.getDocumentosActividad(actividad.id);
+      console.log("Documentos cargados:", documentos.length);
       
       // Añadir los documentos al objeto de actividad
       const actividadConDocumentos = {
@@ -187,6 +194,7 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
       
       setActividadSeleccionada(actividadConDocumentos);
       setVerDetalleDialogo(true);
+      console.log("Modal de detalle abierto");
     } catch (error) {
       console.error('Error al cargar documentos de la actividad:', error);
       mostrarSnackbar('Error al cargar los documentos adjuntos', 'error');
@@ -201,6 +209,11 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
   // Manejar cierre del modal de detalle
   const handleCerrarDetalle = () => {
     setActividadSeleccionada(null);
+    setVerDetalleDialogo(false);
+    // Notificar al componente padre que se ha cerrado el modal
+    if (onCerrarDetalleActividad) {
+      onCerrarDetalleActividad();
+    }
   };
 
   const cargarActividades = async () => {
@@ -310,6 +323,34 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
   useEffect(() => {
     aplicarFiltros(actividades, filtroEstado, filtroFecha, filtroDescripcion);
   }, [filtroEstado, filtroFecha, filtroDescripcion]);
+
+  // Efecto para abrir el modal de detalle cuando se recibe un actividadIdParaVer
+  useEffect(() => {
+    const abrirActividadPorId = async () => {
+      if (actividadIdParaVer && actividades.length > 0) {
+        console.log("Buscando actividad con ID:", actividadIdParaVer);
+        console.log("Actividades disponibles:", actividades.length);
+        
+        const actividadEncontrada = actividades.find(act => act.id === actividadIdParaVer);
+        if (actividadEncontrada) {
+          console.log("Actividad encontrada:", actividadEncontrada);
+          await handleVerActividad(actividadEncontrada);
+        } else {
+          console.log("No se encontró la actividad con ID:", actividadIdParaVer);
+          
+          // Solicitar nuevamente las actividades si no se encuentra
+          if (!cargando) {
+            console.log("Recargando actividades para buscar ID:", actividadIdParaVer);
+            await cargarActividades();
+          }
+        }
+      }
+    };
+    
+    if (!cargando) {
+      abrirActividadPorId();
+    }
+  }, [actividadIdParaVer, actividades, cargando]);
 
   // Cambiar modo de visualización y guardar en localStorage
   const handleViewModeChange = (newMode: 'table' | 'cards') => {
@@ -1075,10 +1116,7 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
       {actividadSeleccionada && (
         <ActividadVisualizador
           open={verDetalleDialogo}
-          onClose={() => {
-            setVerDetalleDialogo(false);
-            setTimeout(() => handleCerrarDetalle(), 300); // Esperar a que termine la animación
-          }}
+          onClose={handleCerrarDetalle}
           actividad={actividadSeleccionada}
           onActualizarActividad={() => {
             handleCerrarDetalle();
