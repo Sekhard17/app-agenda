@@ -107,7 +107,12 @@ export const actualizarActividad = async (
     throw new Error('No tiene permisos para editar esta actividad')
   }
   
-  // Verificar que la actividad esté en estado 'borrador'
+  // Si solo se está actualizando el estado, permitir la actualización
+  if (Object.keys(actividad).length === 1 && actividad.estado !== undefined) {
+    return await actividadModel.actualizarActividad(id, actividad)
+  }
+  
+  // Para otras actualizaciones, verificar que la actividad esté en estado 'borrador'
   if (actividadActual.estado !== 'borrador') {
     throw new Error('No se puede editar una actividad que ya ha sido enviada')
   }
@@ -160,18 +165,7 @@ export const eliminarActividad = async (id: string, usuarioId: string) => {
     throw new Error('No se puede eliminar una actividad que ya ha sido enviada')
   }
   
-  // Verificar que la fecha de la actividad sea hoy o futura
-  const fechaActividad = new Date(actividad.fecha)
-  const hoy = new Date()
-  
-  // Resetear las horas para comparar solo fechas
-  fechaActividad.setHours(0, 0, 0, 0)
-  hoy.setHours(0, 0, 0, 0)
-  
-  if (fechaActividad < hoy) {
-    throw new Error('No se pueden eliminar actividades de fechas pasadas')
-  }
-  
+  // Eliminar la actividad sin verificar la fecha
   return await actividadModel.eliminarActividad(id)
 }
 

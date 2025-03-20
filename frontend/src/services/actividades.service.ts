@@ -9,6 +9,8 @@ export interface Actividad {
   fecha: string;
   hora_inicio: string;
   hora_fin: string;
+  hora?: string;
+  duracion?: number;
   estado: 'pendiente' | 'en_progreso' | 'completada' | 'enviado' | 'borrador' | string;
   prioridad?: 'baja' | 'media' | 'alta' | string;
   fecha_creacion: string;
@@ -19,6 +21,8 @@ export interface Actividad {
   avatar?: string; // Añadido campo avatar para manejar avatares de usuarios
   id_tipo_actividad?: string;
   sistema?: string;
+  observaciones?: string;
+  resultados?: string;
   // Propiedades adicionales para RevisionActividades
   proyectos?: {
     nombre: string;
@@ -51,10 +55,7 @@ class ActividadesService {
    */
   static async getActividadesUsuario(): Promise<Actividad[]> {
     try {
-      console.log('Obteniendo actividades del usuario...');
       const response = await ApiService.get<any>(`${API_CONFIG.ENDPOINTS.ACTIVIDADES.BASE}/usuario`);
-      
-      console.log('Respuesta de actividades del usuario:', response);
       
       // Obtener el usuario actual del localStorage
       const usuarioActual = JSON.parse(localStorage.getItem('usuario') || '{}');
@@ -96,7 +97,6 @@ class ActividadesService {
    */
   static async getActividadesRecientes(nombreUsuarioActual?: string, limite: number = 5): Promise<ActividadReciente[]> {
     try {
-      console.log('Obteniendo actividades recientes...');
       const actividades = await this.getActividadesUsuario();
       
       if (actividades.length === 0) {
@@ -124,9 +124,25 @@ class ActividadesService {
           accion = 'guardó';
         }
 
+        // Procesamos el nombre de usuario con protección contra valores nulos
+        let nombreUsuario = nombreUsuarioActual || 'Usuario';
+        
+        // Si no tenemos un nombre de usuario específico, intentamos formatearlo desde la actividad
+        if (!nombreUsuarioActual && actividad.usuarios) {
+          nombreUsuario = `${actividad.usuarios.nombres || ''} ${actividad.usuarios.appaterno || ''}${actividad.usuarios.apmaterno ? ` ${actividad.usuarios.apmaterno}` : ''}`.trim();
+          // Si el nombre formateado está vacío, usar nombre_usuario como fallback
+          if (!nombreUsuario && actividad.usuarios.nombre_usuario) {
+            nombreUsuario = actividad.usuarios.nombre_usuario;
+          }
+        }
+        
+        if (!nombreUsuario || nombreUsuario === '') {
+          nombreUsuario = 'Usuario';
+        }
+
         return {
           id: actividad.id,
-          usuario: nombreUsuarioActual || 'Usuario',
+          usuario: nombreUsuario,
           avatar: actividad.avatar,
           accion,
           actividad: actividad.nombre,
@@ -159,12 +175,20 @@ class ActividadesService {
   }
 
   /**
-   * Crea una nueva actividad
-   * @param actividad Datos de la actividad a crear
+   * Crea una nueva actividad con archivos adjuntos
+   * @param formData FormData con los datos de la actividad y archivos
    */
-  static async crearActividad(actividad: Omit<Actividad, 'id' | 'fecha_creacion' | 'fecha_actualizacion'>): Promise<Actividad | null> {
+  static async crearActividad(formData: FormData): Promise<Actividad | null> {
     try {
-      const response = await ApiService.post<Actividad>(API_CONFIG.ENDPOINTS.ACTIVIDADES.BASE, actividad);
+      const response = await ApiService.post<Actividad>(
+        API_CONFIG.ENDPOINTS.ACTIVIDADES.BASE, 
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
       return response;
     } catch (error) {
       console.error('Error al crear la actividad:', error);
@@ -207,8 +231,6 @@ class ActividadesService {
    */
   static async getActividadesSupervisadas(filtros?: Record<string, string>): Promise<Actividad[]> {
     try {
-      console.log('Obteniendo actividades supervisadas con filtros:', filtros);
-      
       // Construir la URL con los parámetros de filtro
       let url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ACTIVIDADES.BASE}/supervisados`;
       
@@ -228,12 +250,8 @@ class ActividadesService {
                 // Formato YYYY-MM-DD
                 const fechaFormateada = fecha.toISOString().split('T')[0];
                 params.append(key, fechaFormateada);
-                console.log(`Fecha ${key} formateada:`, fechaFormateada);
-              } else {
-                console.warn(`Fecha inválida para ${key}:`, value);
               }
             } catch (e) {
-              console.error(`Error al formatear fecha ${key}:`, e);
               params.append(key, value); // Usar el valor original si hay error
             }
           } else {
@@ -246,21 +264,16 @@ class ActividadesService {
         }
       }
       
-      console.log('URL de petición:', url);
       const response = await ApiService.get<any>(url);
-      console.log('Respuesta del servidor:', response);
       
       // Verificamos el formato de la respuesta
       let actividades: Actividad[] = [];
       if (response) {
         if (response.actividades && Array.isArray(response.actividades)) {
-          console.log('Formato de respuesta: { actividades: [...] }');
           actividades = response.actividades;
         } else if (Array.isArray(response)) {
-          console.log('Formato de respuesta: [...]');
           actividades = response;
         } else if (response.data && Array.isArray(response.data)) {
-          console.log('Formato de respuesta: { data: [...] }');
           actividades = response.data;
         } else {
           // Intentar extraer datos si la respuesta es un objeto
@@ -268,15 +281,10 @@ class ActividadesService {
             // Buscar cualquier propiedad que sea un array
             for (const key in response) {
               if (Array.isArray(response[key])) {
-                console.log(`Encontrado array en la propiedad '${key}'`);
                 actividades = response[key];
                 break;
               }
             }
-          }
-          
-          if (actividades.length === 0) {
-            console.log('Formato de respuesta desconocido:', response);
           }
         }
       }
@@ -295,7 +303,6 @@ class ActividadesService {
         return horaB.localeCompare(horaA);
       });
       
-      console.log('Actividades procesadas:', actividades.length);
       return actividades;
     } catch (error) {
       console.error('Error al obtener actividades supervisadas:', error);

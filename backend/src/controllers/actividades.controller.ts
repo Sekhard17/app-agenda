@@ -4,6 +4,19 @@
 import { Request, Response } from 'express'
 import * as actividadesService from '../services/actividades.service'
 import { ActividadCrear, ActividadActualizar } from '../types/actividades.types'
+import multer from 'multer'
+import path from 'path'
+import supabase from '../config/supabase'
+import * as documentosService from '../services/documentos.service'
+
+// Configurar multer para manejar la subida de archivos en memoria
+const storage = multer.memoryStorage()
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // Limitar a 10MB
+  }
+})
 
 // Obtener una actividad por ID
 export const getActividad = async (req: Request, res: Response) => {
@@ -71,7 +84,8 @@ export const getActividadesPorRango = async (req: Request, res: Response) => {
 // Crear una nueva actividad
 export const crearActividad = async (req: Request, res: Response): Promise<void> => {
   try {
-    const actividadData = req.body as ActividadCrear
+    const actividadData = JSON.parse(req.body.actividad) as ActividadCrear
+    const archivos = req.files as Express.Multer.File[]
     const usuarioId = req.usuario?.id
     
     if (!usuarioId) {
@@ -83,51 +97,97 @@ export const crearActividad = async (req: Request, res: Response): Promise<void>
     actividadData.id_usuario = usuarioId
     
     // Validar que las horas sean correctas
-    const horaInicio = actividadData.hora_inicio;
-    const horaFin = actividadData.hora_fin;
+    const horaInicio = actividadData.hora_inicio
+    const horaFin = actividadData.hora_fin
 
-    // Validar formato de horas (opcional, dependiendo de cómo se envíen desde el frontend)
+    // Validar formato de horas
     const validarFormatoHora = (hora: string): boolean => {
-      // Aceptar formato 24h (HH:MM) o 12h (HH:MM AM/PM)
-      return /^\d{1,2}:\d{2}(\s[AP]M)?$/.test(hora);
-    };
+      return /^\d{1,2}:\d{2}(\s[AP]M)?$/.test(hora)
+    }
 
     if (!validarFormatoHora(horaInicio) || !validarFormatoHora(horaFin)) {
-      res.status(400).json({ message: 'Formato de hora inválido. Use HH:MM o HH:MM AM/PM' });
-      return;
+      res.status(400).json({ message: 'Formato de hora inválido. Use HH:MM o HH:MM AM/PM' })
+      return
     }
 
     // Validar que hora fin sea posterior a hora inicio
     const compararHoras = (hora1: string, hora2: string): boolean => {
-      // Convertir a formato de 24 horas para comparación
       const formatearHora = (hora: string): string => {
-        // Si ya está en formato de 24 horas (HH:MM), devolverlo tal cual
         if (!/\s[AP]M$/.test(hora)) {
-          return hora.padStart(5, '0'); // Asegurar formato HH:MM
+          return hora.padStart(5, '0')
         }
         
-        // Si está en formato de 12 horas (HH:MM AM/PM), convertirlo
-        const [timePart, modifier] = hora.split(' ');
-        let [hours, minutes] = timePart.split(':');
+        const [timePart, modifier] = hora.split(' ')
+        let [hours, minutes] = timePart.split(':')
         
         if (hours === '12') {
-          hours = modifier === 'AM' ? '00' : '12';
+          hours = modifier === 'AM' ? '00' : '12'
         } else if (modifier === 'PM') {
-          hours = String(parseInt(hours, 10) + 12);
+          hours = String(parseInt(hours, 10) + 12)
         }
         
-        return `${hours.padStart(2, '0')}:${minutes}`;
-      };
+        return `${hours.padStart(2, '0')}:${minutes}`
+      }
 
-      return formatearHora(hora1) < formatearHora(hora2);
-    };
+      return formatearHora(hora1) < formatearHora(hora2)
+    }
 
     if (!compararHoras(horaInicio, horaFin)) {
-      res.status(400).json({ message: 'La hora de fin debe ser posterior a la hora de inicio' });
-      return;
+      res.status(400).json({ message: 'La hora de fin debe ser posterior a la hora de inicio' })
+      return
     }
     
+    // Guardar el estado final deseado
+    const estadoFinal = actividadData.estado
+    
+    // Temporalmente establecer estado como borrador para permitir adjuntar documentos
+    actividadData.estado = 'borrador'
+    
+    // Crear la actividad
     const actividad = await actividadesService.crearActividad(actividadData)
+
+    // Si hay archivos, procesarlos
+    if (archivos && archivos.length > 0) {
+      for (const archivo of archivos) {
+        const extension = path.extname(archivo.originalname)
+        const nombreArchivo = `${actividad.id}/${Date.now()}_${Math.random().toString(36).substring(2, 15)}${extension}`
+        
+        // Subir el archivo a Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from('documentos')
+          .upload(nombreArchivo, archivo.buffer, {
+            contentType: archivo.mimetype,
+            cacheControl: '3600'
+          })
+        
+        if (uploadError) {
+          console.error('Error al subir archivo a Supabase:', uploadError)
+          continue
+        }
+        
+        // Obtener URL pública del archivo
+        const { data: urlData } = await supabase
+          .storage
+          .from('documentos')
+          .getPublicUrl(nombreArchivo)
+        
+        // Crear el registro del documento
+        await documentosService.crearDocumento({
+          id_actividad: actividad.id,
+          nombre_archivo: archivo.originalname,
+          ruta_archivo: urlData.publicUrl,
+          tipo_archivo: archivo.mimetype,
+          tamaño_bytes: archivo.size
+        }, usuarioId)
+      }
+    }
+    
+    // Actualizar al estado final deseado si es diferente de borrador
+    if (estadoFinal !== 'borrador') {
+      await actividadesService.actualizarActividad(actividad.id, { estado: estadoFinal }, usuarioId)
+      actividad.estado = estadoFinal // Actualizar el objeto para la respuesta
+    }
+
     res.status(201).json({
       message: 'Actividad creada exitosamente',
       actividad
@@ -135,27 +195,26 @@ export const crearActividad = async (req: Request, res: Response): Promise<void>
   } catch (error: any) {
     console.error('Error al crear actividad:', error)
     if (!res.headersSent) {
-      // Mejorar los mensajes de error para ser más descriptivos
-      let mensaje = error.message || 'Error al crear actividad';
-      let statusCode = 500;
-      let errorCode = null;
+      let mensaje = error.message || 'Error al crear actividad'
+      let statusCode = 500
+      let errorCode = null
       
       if (error.message?.includes('fechas pasadas')) {
-        mensaje = 'No se pueden crear actividades para fechas pasadas. La fecha debe ser igual o posterior a hoy.';
-        statusCode = 400;
-        errorCode = 'fecha_pasada';
+        mensaje = 'No se pueden crear actividades para fechas pasadas. La fecha debe ser igual o posterior a hoy.'
+        statusCode = 400
+        errorCode = 'fecha_pasada'
       } else if (error.message?.includes('superpone')) {
-        mensaje = 'La actividad se superpone con otra actividad existente. Por favor, elija un horario diferente.';
-        statusCode = 400;
-        errorCode = 'superposicion_horarios';
+        mensaje = 'La actividad se superpone con otra actividad existente. Por favor, elija un horario diferente.'
+        statusCode = 400
+        errorCode = 'superposicion_horarios'
       }
       
-      const respuesta: any = { message: mensaje };
+      const respuesta: any = { message: mensaje }
       if (errorCode) {
-        respuesta.errorCode = errorCode;
+        respuesta.errorCode = errorCode
       }
       
-      res.status(statusCode).json(respuesta);
+      res.status(statusCode).json(respuesta)
     }
   }
 }
@@ -234,13 +293,13 @@ export const getActividadesSupervisados = async (req: Request, res: Response) =>
     console.log('Filtros recibidos:', { fechaInicio, fechaFin, usuarioId, proyectoId, estado })
     
     // Si no se especifican fechas, obtener todas las actividades de los últimos 3 meses
-    let fechaInicioObj = fechaInicio ? new Date(fechaInicio as string) : new Date();
-    let fechaFinObj = fechaFin ? new Date(fechaFin as string) : new Date();
+    let fechaInicioObj = fechaInicio ? new Date(fechaInicio as string) : new Date()
+    let fechaFinObj = fechaFin ? new Date(fechaFin as string) : new Date()
     
     // Si no hay fechas especificadas, usar un rango amplio (últimos 3 meses)
     if (!fechaInicio) {
-      fechaInicioObj.setMonth(fechaInicioObj.getMonth() - 3);
-      console.log('No se especificó fecha de inicio, usando los últimos 3 meses:', fechaInicioObj.toISOString());
+      fechaInicioObj.setMonth(fechaInicioObj.getMonth() - 3)
+      console.log('No se especificó fecha de inicio, usando los últimos 3 meses:', fechaInicioObj.toISOString())
     }
     
     const actividades = await actividadesService.obtenerActividadesSupervisados(

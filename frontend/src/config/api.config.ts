@@ -33,6 +33,7 @@ export const API_CONFIG = {
     ESTADISTICAS: {
       BASE: '/estadisticas',
       USUARIO: (id: string) => `/estadisticas/usuarios/${id}`,
+      PROYECTO: (id: string) => `/estadisticas/proyectos/${id}/estadisticas`,
       ACTIVIDADES_POR_PROYECTO: '/estadisticas/actividades-por-proyecto',
       ACTIVIDADES_POR_USUARIO: '/estadisticas/actividades-por-usuario',
     },

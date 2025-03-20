@@ -51,6 +51,7 @@ import {
   ViewModule as ViewModuleIcon,
   ViewList as ViewListIcon,
   Home as HomeIcon,
+  People as PeopleIcon,
 } from '@mui/icons-material';
 
 import { useAuth } from '../context/AuthContext';
@@ -143,6 +144,11 @@ const Supervisados: React.FC = () => {
     } catch (error) {
       console.error('Error al obtener supervisados:', error);
       mostrarSnackbar('Error al cargar los supervisados', 'error');
+    } finally {
+      // Asegurar que el loading termine si no hay supervisados
+      if (!supervisados.length) {
+        setLoading(false);
+      }
     }
   };
 
@@ -707,14 +713,55 @@ const Supervisados: React.FC = () => {
                   </Box>
                 )
               ) : (
-                <Box sx={{ p: 5, textAlign: 'center' }}>
-                  <Typography color="text.secondary" variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
-                    No se encontraron supervisados
-                  </Typography>
-                  <Typography color="text.secondary" variant="body2">
-                    No se encontraron supervisados con el filtro aplicado
-                  </Typography>
-                </Box>
+                supervisados.length === 0 ? (
+                  <Box sx={{ p: 5, textAlign: 'center' }}>
+                    <Avatar
+                      sx={{
+                        width: 80,
+                        height: 80,
+                        margin: '0 auto 16px',
+                        backgroundColor: alpha(theme.palette.info.main, 0.1),
+                        color: theme.palette.info.main
+                      }}
+                    >
+                      <PeopleIcon sx={{ fontSize: 40 }} />
+                    </Avatar>
+                    <Typography color="text.primary" variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
+                      No tienes supervisados asignados
+                    </Typography>
+                    <Typography color="text.secondary" variant="body1" sx={{ mb: 3, maxWidth: 500, mx: 'auto' }}>
+                      Actualmente no hay funcionarios asignados a tu supervisión. 
+                      Cuando se te asignen supervisados, aparecerán en esta página.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      sx={{
+                        borderRadius: '12px',
+                        px: 3,
+                        py: 1,
+                        boxShadow: '0 4px 12px rgba(63, 81, 181, 0.2)',
+                        background: 'linear-gradient(45deg, #3f51b5 30%, #5c6bc0 90%)',
+                        '&:hover': {
+                          boxShadow: '0 6px 16px rgba(63, 81, 181, 0.3)',
+                          transform: 'translateY(-2px)',
+                        },
+                        transition: 'all 0.2s ease-in-out',
+                      }}
+                    >
+                      Solicitar Asignación
+                    </Button>
+                  </Box>
+                ) : (
+                  <Box sx={{ p: 5, textAlign: 'center' }}>
+                    <Typography color="text.secondary" variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
+                      No se encontraron resultados
+                    </Typography>
+                    <Typography color="text.secondary" variant="body2">
+                      No se encontraron supervisados con el filtro aplicado
+                    </Typography>
+                  </Box>
+                )
               )}
             </CardContent>
           </Card>

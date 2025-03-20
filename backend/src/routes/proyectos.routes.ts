@@ -19,6 +19,8 @@ router.post('/', proyectosController.crearProyecto as RequestHandler)
 router.put('/:id', proyectosController.actualizarProyecto as RequestHandler)
 router.patch('/:id/activar', proyectosController.activarProyecto as RequestHandler)
 router.patch('/:id/desactivar', proyectosController.desactivarProyecto as RequestHandler)
+router.get('/:id/actividades', proyectosController.getActividadesProyecto as RequestHandler)
+router.get('/:id/documentos', proyectosController.getDocumentosProyecto as RequestHandler)
 
 // Rutas para asignación de proyectos
 router.get('/usuario/:usuarioId', proyectosController.getProyectosDeUsuario as RequestHandler)

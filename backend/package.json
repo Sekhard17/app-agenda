@@ -7,7 +7,20 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "vercel-build": "tsc"
+    "vercel-build": "tsc",
+    "sincronizar": "ts-node src/scripts/sincronizacion-inicial.ts",
+    "sincronizar-nuevo": "ts-node src/scripts/sincronizacion-nueva.ts",
+    "insertar-empresas": "ts-node src/scripts/insertar-empresas.ts",
+    "alterar-tabla": "ts-node src/scripts/alterar-tabla.ts",
+    "sincronizar-simple": "ts-node src/scripts/sincronizacion-simple.ts",
+    "sincronizar-activos": "ts-node src/scripts/sincronizacion-activos.ts",
+    "sincronizar-contratos": "ts-node src/scripts/sincronizacion-contratos.ts",
+    "sincronizar-contratos-numero": "ts-node src/scripts/sincronizacion-contratos-numerado.ts",
+    "sincronizar-cargos": "ts-node src/scripts/sincronizacion-cargos.ts",
+    "asociar-supervisores": "ts-node src/scripts/asociar-supervisores.ts",
+    "crear-usuarios-supervisores": "ts-node src/scripts/crear-usuarios-supervisores.ts",
+    "crear-todos-usuarios": "ts-node src/scripts/crear-todos-usuarios.ts",
+    "crear-usuarios-rapido": "ts-node src/scripts/crear-usuarios-rapido.ts"
   },
   "keywords": [],
   "author": "",
@@ -15,8 +28,10 @@
   "description": "",
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
+    "@types/pg": "^8.11.11",
+    "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-validator": "^7.2.1",
@@ -24,6 +39,8 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "pg": "^8.14.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -35,11 +52,9 @@
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.13.10",
+    "@types/node-cron": "^3.0.11",
     "@vercel/node": "^5.1.14",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.2"
-  },
-  "engines": {
-    "node": "18.x"
   }
 }

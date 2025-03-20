@@ -38,6 +38,9 @@ import TiposActividad from './pages/TiposActividad';
 // Páginas para el rol de funcionario
 import MisActividades from './pages/MisActividades';
 import RegistrarActividad from './pages/RegistrarActividad';
+import PortalProyectos from './pages/PortalProyectos';
+import DetalleProyecto from './pages/DetalleProyecto';
+import Actividades from './pages/Actividades';
 
 // Crear cliente de consulta
 const queryClient = new QueryClient();
@@ -285,6 +288,23 @@ function App() {
                       <Route path="registrar-actividad" element={
                         <PrivateRoute roles={['funcionario']}>
                           <RegistrarActividad />
+                        </PrivateRoute>
+                      } />
+                      <Route path="portal-proyectos" element={
+                        <PrivateRoute roles={['funcionario']}>
+                          <PortalProyectos />
+                        </PrivateRoute>
+                      } />
+                      <Route path="proyecto/:id" element={
+                        <PrivateRoute roles={['funcionario']}>
+                          <DetalleProyecto />
+                        </PrivateRoute>
+                      } />
+                      
+                      {/* Ruta para Actividades */}
+                      <Route path="actividades" element={
+                        <PrivateRoute>
+                          <Actividades />
                         </PrivateRoute>
                       } />
                     </Route>

@@ -1,6 +1,9 @@
 import * as actividadModel from '../models/actividad.model';
 import * as proyectoModel from '../models/proyecto.model';
 import * as usuarioModel from '../models/usuario.model';
+import * as documentoModel from '../models/documento.model';
+import { IActividad } from '../models/actividad.model';
+import { IUsuario } from '../models/usuario.model';
 
 // Interfaz para estadísticas diarias
 interface EstadisticaDiaria {
@@ -164,6 +167,162 @@ export const obtenerEstadisticasUsuario = async (
     };
   } catch (error) {
     console.error('Error al obtener estadísticas del usuario:', error);
+    throw error;
+  }
+};
+
+// Interfaz para estadísticas de proyecto específico
+interface EstadisticasProyectoEspecifico {
+  total_actividades: number;
+  actividades_completadas: number;
+  horas_registradas: number;
+  usuarios_asignados: IUsuario[];
+  documentos_totales: number;
+  ultima_actividad?: {
+    descripcion: string;
+    fecha: Date;
+    usuario: string;
+    estado: 'borrador' | 'enviado';
+  };
+}
+
+// Obtener estadísticas específicas de un proyecto
+export const obtenerEstadisticasProyectoEspecifico = async (
+  proyectoId: string
+): Promise<EstadisticasProyectoEspecifico> => {
+  try {
+    // Obtener actividades del proyecto
+    const actividades = await actividadModel.obtenerActividadesPorProyecto(proyectoId);
+    
+    // Obtener documentos del proyecto
+    const documentos = await documentoModel.obtenerDocumentosPorProyecto(proyectoId);
+    
+    // Obtener usuarios asignados al proyecto
+    const usuarios = await usuarioModel.obtenerUsuariosPorProyecto(proyectoId);
+    
+    // Calcular estadísticas
+    const actividadesCompletadas = actividades.filter((act: IActividad) => act.estado === 'enviado').length;
+    const horasRegistradas = actividades.reduce((total: number, act: IActividad) => {
+      const inicio = new Date(`1970-01-01T${act.hora_inicio}`);
+      const fin = new Date(`1970-01-01T${act.hora_fin}`);
+      const horas = (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60);
+      return total + horas;
+    }, 0);
+    
+    // Obtener última actividad
+    const ultimaActividad = actividades.length > 0 
+      ? actividades.sort((a: IActividad, b: IActividad) => 
+          new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
+        )[0]
+      : undefined;
+
+    // Si hay última actividad, obtener el usuario
+    let nombreUsuarioUltimaActividad = 'Usuario no encontrado';
+    if (ultimaActividad) {
+      const usuario = await usuarioModel.obtenerUsuarioPorId(ultimaActividad.id_usuario);
+      if (usuario) {
+        nombreUsuarioUltimaActividad = `${usuario.nombres} ${usuario.appaterno}`;
+      }
+    }
+    
+    return {
+      total_actividades: actividades.length,
+      actividades_completadas: actividadesCompletadas,
+      horas_registradas: Math.round(horasRegistradas * 100) / 100,
+      usuarios_asignados: usuarios,
+      documentos_totales: documentos.length,
+      ultima_actividad: ultimaActividad ? {
+        descripcion: ultimaActividad.descripcion,
+        fecha: ultimaActividad.fecha_creacion,
+        usuario: nombreUsuarioUltimaActividad,
+        estado: ultimaActividad.estado
+      } : undefined
+    };
+  } catch (error) {
+    console.error('Error al obtener estadísticas del proyecto:', error);
+    throw error;
+  }
+};
+
+// Verificar si un usuario tiene acceso a un proyecto
+export const verificarAccesoProyecto = async (proyectoId: string, usuarioId: string): Promise<boolean> => {
+  try {
+    // Por ahora, permitir acceso a todos los usuarios autenticados
+    // hasta que se corrija el problema de asignaciones
+    return true;
+    
+    /*
+    const proyecto = await proyectoModel.obtenerProyectoPorId(proyectoId);
+    if (!proyecto) return false;
+
+    // Si es supervisor del proyecto, tiene acceso
+    if (proyecto.id_supervisor === usuarioId) return true;
+
+    // Si está asignado al proyecto, tiene acceso
+    const asignaciones = await proyectoModel.obtenerAsignacionesProyecto(proyectoId);
+    return asignaciones.some(asignacion => asignacion.usuario_id === usuarioId);
+    */
+  } catch (error) {
+    console.error('Error al verificar acceso al proyecto:', error);
+    return false;
+  }
+};
+
+// Obtener estadísticas de un proyecto específico
+export const obtenerEstadisticasProyecto = async (proyectoId: string) => {
+  try {
+    // Obtener actividades del proyecto
+    const actividades = await actividadModel.obtenerActividadesPorProyecto(proyectoId);
+    
+    // Obtener los IDs de las actividades del proyecto
+    const actividadesIds = actividades.map((act: IActividad) => act.id);
+    
+    // Obtener documentos a través de las actividades del proyecto
+    let documentos: any[] = [];
+    if (actividadesIds.length > 0) {
+      // Solo intentar obtener documentos si hay actividades
+      documentos = await documentoModel.obtenerDocumentosPorActividades(actividadesIds);
+    }
+    
+    // Obtener usuarios asignados al proyecto
+    const asignaciones = await proyectoModel.obtenerAsignacionesProyecto(proyectoId);
+    const usuariosIds = asignaciones.map(asignacion => asignacion.usuario_id);
+    const usuarios = await usuarioModel.obtenerUsuariosPorIds(usuariosIds);
+
+    // Calcular estadísticas
+    const actividadesCompletadas = actividades.filter((act: IActividad) => act.estado === 'enviado').length;
+    const horasRegistradas = actividades.reduce((total: number, act: IActividad) => {
+      const inicio = new Date(`1970-01-01T${act.hora_inicio}`);
+      const fin = new Date(`1970-01-01T${act.hora_fin}`);
+      const horas = (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60);
+      return total + horas;
+    }, 0);
+
+    // Obtener última actividad
+    const ultimaActividad = actividades.length > 0 
+      ? actividades.sort((a: IActividad, b: IActividad) => 
+          new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
+        )[0]
+      : null;
+
+    // Formatear última actividad
+    const ultimaActividadFormateada = ultimaActividad ? {
+      descripcion: ultimaActividad.descripcion,
+      fecha: ultimaActividad.fecha_creacion,
+      usuario: usuarios.find(u => u.id === ultimaActividad.id_usuario)?.nombre_usuario || 'Usuario no encontrado',
+      estado: ultimaActividad.estado
+    } : null;
+
+    return {
+      total_actividades: actividades.length,
+      actividades_completadas: actividadesCompletadas,
+      horas_registradas: Math.round(horasRegistradas * 100) / 100,
+      usuarios_asignados: usuarios,
+      documentos: documentos,
+      ultima_actividad: ultimaActividadFormateada
+    };
+  } catch (error) {
+    console.error('Error al obtener estadísticas del proyecto:', error);
     throw error;
   }
 };

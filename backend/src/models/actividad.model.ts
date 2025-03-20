@@ -2,7 +2,7 @@
 // Este modelo maneja la interacción con la tabla de actividades en la base de datos
 
 import supabase from '../config/supabase'
-import { Actividad, ActividadCrear, ActividadActualizar } from '../types/actividades.types'
+import { Actividad as ActividadType, ActividadCrear, ActividadActualizar } from '../types/actividades.types'
 
 // Obtener una actividad por ID
 export const obtenerActividadPorId = async (id: string) => {
@@ -275,3 +275,39 @@ export const obtenerActividadesSupervisados = async (
   console.log(`Se encontraron ${data?.length || 0} actividades supervisadas`);
   return data || [];
 }
+
+// Interfaz para actividades
+export interface IActividad {
+  id: string;
+  id_usuario: string;
+  fecha: Date;
+  hora_inicio: string;
+  hora_fin: string;
+  descripcion: string;
+  id_proyecto?: string;
+  estado: 'borrador' | 'enviado';
+  fecha_creacion: Date;
+  fecha_actualizacion: Date;
+}
+
+// Obtener actividades por proyecto
+export const obtenerActividadesPorProyecto = async (proyectoId: string): Promise<IActividad[]> => {
+  const { data, error } = await supabase
+    .from('actividades')
+    .select(`
+      *,
+      usuarios (
+        nombres,
+        appaterno
+      )
+    `)
+    .eq('id_proyecto', proyectoId)
+    .order('fecha', { ascending: false });
+
+  if (error) throw error;
+
+  return data.map(actividad => ({
+    ...actividad,
+    usuario: actividad.usuarios ? `${actividad.usuarios.nombres} ${actividad.usuarios.appaterno}` : 'Usuario no encontrado'
+  }));
+};

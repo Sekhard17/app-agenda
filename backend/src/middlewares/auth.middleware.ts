@@ -26,44 +26,28 @@ declare global {
 // Middleware para verificar el token JWT
 export const verificarToken: RequestHandler = (req: Request, res: Response, next: NextFunction): void => {
   try {
-    // Para desarrollo, permitir solicitudes sin token
-    const isDevMode = process.env.NODE_ENV === 'development';
     const token = req.headers.authorization?.split(' ')[1];
 
     if (!token) {
-      if (isDevMode) {
-        // En desarrollo, crear un usuario de prueba si no hay token
-        req.usuario = {
-          id: '1',
-          nombre_usuario: 'usuario_prueba',
-          rol: 'funcionario'
-        };
-        next();
-        return;
-      } else {
-        res.status(401).json({ message: 'No se proporcionó token de autenticación' });
-        return;
-      }
+      res.status(401).json({ message: 'No se proporcionó token de autenticación' });
+      return;
     }
 
     try {
       const decoded = jwt.verify(token, config.jwt_secret) as UsuarioToken;
+      
+      // Verificar que el token no esté expirado
+      const tokenExp = (decoded as any).exp;
+      if (tokenExp && Date.now() >= tokenExp * 1000) {
+        res.status(401).json({ message: 'Token expirado' });
+        return;
+      }
+
       req.usuario = decoded;
       next();
     } catch (jwtError) {
       console.error('Error al verificar token:', jwtError);
-      
-      if (isDevMode) {
-        // En desarrollo, crear un usuario de prueba si el token es inválido
-        req.usuario = {
-          id: '1',
-          nombre_usuario: 'usuario_prueba',
-          rol: 'funcionario'
-        };
-        next();
-      } else {
-        res.status(401).json({ message: 'Token inválido o expirado' });
-      }
+      res.status(401).json({ message: 'Token inválido o expirado' });
     }
   } catch (error) {
     console.error('Error inesperado en middleware de autenticación:', error);

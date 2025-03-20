@@ -37,6 +37,7 @@ export interface ActividadCrear {
     id_proyecto?: string
     id_tipo_actividad: string
     sistema?: string
+    estado?: 'borrador' | 'enviado'
 }
 
 export interface ActividadActualizar {
@@ -46,5 +47,6 @@ export interface ActividadActualizar {
     id_proyecto?: string
     id_tipo_actividad?: string
     sistema?: string
+    estado?: 'borrador' | 'enviado'
 }
 

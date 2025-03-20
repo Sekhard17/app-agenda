@@ -4,6 +4,7 @@
 import { Request, Response } from 'express'
 import * as authService from '../services/auth.service'
 import { UsuarioLogin, UsuarioRegistro } from '../types/usuario.types'
+import supabase from '../config/supabase'
 
 // Controlador para iniciar sesión
 export const login = async (req: Request, res: Response) => {
@@ -72,7 +73,34 @@ export const getUsuarioActual = async (req: Request, res: Response) => {
 }
 
 // Controlador para cerrar sesión
-export const logout = (req: Request, res: Response) => {
-  // En JWT, el cierre de sesión se maneja en el cliente eliminando el token
-  res.json({ message: 'Sesión cerrada exitosamente' })
+export const logout = async (req: Request, res: Response) => {
+  try {
+    // Si tenemos un token de autenticación, podemos intentar cerrar la sesión en Supabase Auth
+    if (req.headers.authorization) {
+      const token = req.headers.authorization.split(' ')[1];
+      // Si estamos usando Supabase Auth, podemos intentar invalidar la sesión
+      // Esta operación es opcional, ya que los JWT son stateless
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.error('Error al cerrar sesión en Supabase Auth:', error);
+        }
+      } catch (supabaseError) {
+        console.error('Error al interactuar con Supabase Auth:', supabaseError);
+      }
+    }
+    
+    // Devolver una respuesta exitosa
+    // La cookie debe ser eliminada en el cliente
+    res.json({ 
+      message: 'Sesión cerrada exitosamente',
+      success: true
+    });
+  } catch (error: any) {
+    console.error('Error en logout:', error);
+    res.status(500).json({ 
+      message: error.message || 'Error al cerrar sesión',
+      success: false
+    });
+  }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, ReactElement } from 'react';
 import { 
   Box, 
   Typography, 
@@ -10,7 +10,6 @@ import {
   TextField,
   useTheme,
   alpha,
-  Skeleton,
   TablePagination,
   Collapse,
   MenuItem,
@@ -22,10 +21,18 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Zoom,
+  Avatar,
+  Grow,
+  CircularProgress,
+  Divider,
+  Snackbar,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 
 // Importar el componente de modal de detalle
@@ -35,7 +42,6 @@ import {
   AccessTime as AccessTimeIcon,
   Folder as FolderIcon,
   FilterList as FilterListIcon,
-  Refresh as RefreshIcon,
   Search as SearchIcon,
   Clear as ClearIcon,
   Home as HomeIcon,
@@ -43,6 +49,12 @@ import {
   ViewList as ViewListIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Assignment as AssignmentIcon,
+  CheckCircle as CheckCircleIcon,
+  PlayCircle as PlayCircleIcon,
+  Pending as PendingIcon,
+  Send as SendIcon,
+  Note as NoteIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
@@ -71,6 +83,18 @@ const MisActividades = () => {
   const [actividadSeleccionada, setActividadSeleccionada] = useState<Actividad | null>(null);
   const [verDetalleDialogo, setVerDetalleDialogo] = useState(false);
   const [cargando, setCargando] = useState(true);
+  const [actividadAEliminar, setActividadAEliminar] = useState<Actividad | null>(null);
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [notificacion, setNotificacion] = useState<{
+    abierta: boolean;
+    mensaje: string;
+    tipo: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    abierta: false,
+    mensaje: '',
+    tipo: 'info'
+  });
   
   // Estado para el tipo de vista (cards/tabla)
   const [viewType, setViewType] = useState<ViewType>(() => {
@@ -163,18 +187,18 @@ const MisActividades = () => {
   const obtenerColorEstado = (estado: string) => {
     switch (estado.toLowerCase()) {
       case 'completada':
-        return theme.palette.success.main;
+        return '#2e7d32'; // Verde más vibrante
       case 'en_progreso':
       case 'en progreso':
-        return theme.palette.info.main;
+        return '#1976d2'; // Azul más vibrante
       case 'pendiente':
-        return theme.palette.warning.main;
+        return '#ed6c02'; // Naranja más vibrante
       case 'enviado':
-        return theme.palette.primary.main;
+        return '#00c853'; // Verde brillante
       case 'borrador':
-        return theme.palette.grey[500];
+        return '#9e9e9e'; // Gris más suave
       default:
-        return theme.palette.grey[500];
+        return '#757575';
     }
   };
 
@@ -182,18 +206,18 @@ const MisActividades = () => {
   const obtenerColorFondoEstado = (estado: string) => {
     switch (estado.toLowerCase()) {
       case 'completada':
-        return `linear-gradient(135deg, ${alpha(theme.palette.success.light, 0.2)}, ${alpha(theme.palette.success.main, 0.1)})`;
+        return `linear-gradient(135deg, ${alpha('#2e7d32', 0.15)}, ${alpha('#2e7d32', 0.05)})`;
       case 'en_progreso':
       case 'en progreso':
-        return `linear-gradient(135deg, ${alpha(theme.palette.info.light, 0.2)}, ${alpha(theme.palette.info.main, 0.1)})`;
+        return `linear-gradient(135deg, ${alpha('#1976d2', 0.15)}, ${alpha('#1976d2', 0.05)})`;
       case 'pendiente':
-        return `linear-gradient(135deg, ${alpha(theme.palette.warning.light, 0.2)}, ${alpha(theme.palette.warning.main, 0.1)})`;
+        return `linear-gradient(135deg, ${alpha('#ed6c02', 0.15)}, ${alpha('#ed6c02', 0.05)})`;
       case 'enviado':
-        return `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.2)}, ${alpha(theme.palette.primary.main, 0.1)})`;
+        return `linear-gradient(135deg, ${alpha('#00c853', 0.15)}, ${alpha('#00c853', 0.05)})`;
       case 'borrador':
-        return `linear-gradient(135deg, ${alpha(theme.palette.grey[400], 0.2)}, ${alpha(theme.palette.grey[500], 0.1)})`;
+        return `linear-gradient(135deg, ${alpha('#9e9e9e', 0.15)}, ${alpha('#9e9e9e', 0.05)})`;
       default:
-        return `linear-gradient(135deg, ${alpha(theme.palette.grey[400], 0.2)}, ${alpha(theme.palette.grey[500], 0.1)})`;
+        return `linear-gradient(135deg, ${alpha('#757575', 0.15)}, ${alpha('#757575', 0.05)})`;
     }
   };
 
@@ -213,6 +237,25 @@ const MisActividades = () => {
         return 'Borrador';
       default:
         return estado;
+    }
+  };
+
+  // Obtener ícono según estado
+  const obtenerIconoEstado = (estado: string): ReactElement => {
+    switch (estado.toLowerCase()) {
+      case 'completada':
+        return <CheckCircleIcon sx={{ fontSize: '1.1rem', mr: 0.5 }} />;
+      case 'en_progreso':
+      case 'en progreso':
+        return <PlayCircleIcon sx={{ fontSize: '1.1rem', mr: 0.5 }} />;
+      case 'pendiente':
+        return <PendingIcon sx={{ fontSize: '1.1rem', mr: 0.5 }} />;
+      case 'enviado':
+        return <SendIcon sx={{ fontSize: '1.1rem', mr: 0.5 }} />;
+      case 'borrador':
+        return <NoteIcon sx={{ fontSize: '1.1rem', mr: 0.5 }} />;
+      default:
+        return <NoteIcon sx={{ fontSize: '1.1rem', mr: 0.5 }} />;
     }
   };
 
@@ -238,10 +281,67 @@ const MisActividades = () => {
     setVerDetalleDialogo(false);
   };
 
-  // Manejar actualización de actividad
-  const handleActividadActualizada = () => {
-    cargarActividades();
-    setVerDetalleDialogo(false);
+  // Manejar editar actividad
+  const handleEditarActividad = (actividad: Actividad) => {
+    setActividadSeleccionada(actividad);
+    setVerDetalleDialogo(true);
+  };
+
+  // Manejar eliminar actividad
+  const handleEliminarActividad = (actividad: Actividad) => {
+    if (!actividad) {
+      setNotificacion({
+        abierta: true,
+        mensaje: 'No se puede eliminar una actividad inválida',
+        tipo: 'error'
+      });
+      return;
+    }
+    setActividadAEliminar(actividad);
+    setMostrarConfirmacion(true);
+  };
+
+  // Confirmar eliminación
+  const confirmarEliminacion = async () => {
+    if (!actividadAEliminar) return;
+
+    try {
+      setEliminando(true);
+      const eliminado = await ActividadesService.eliminarActividad(actividadAEliminar.id);
+      
+      if (eliminado) {
+        setActividades(prevActividades => 
+          prevActividades.filter(actividad => actividad.id !== actividadAEliminar.id)
+        );
+        setNotificacion({
+          abierta: true,
+          mensaje: 'Actividad eliminada con éxito',
+          tipo: 'success'
+        });
+      } else {
+        setNotificacion({
+          abierta: true,
+          mensaje: 'No se pudo eliminar la actividad',
+          tipo: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('Error al eliminar actividad:', error);
+      setNotificacion({
+        abierta: true,
+        mensaje: 'Ocurrió un error al eliminar la actividad',
+        tipo: 'error'
+      });
+    } finally {
+      setEliminando(false);
+      setMostrarConfirmacion(false);
+      setActividadAEliminar(null);
+    }
+  };
+
+  // Cerrar notificación
+  const handleCerrarNotificacion = () => {
+    setNotificacion(prev => ({ ...prev, abierta: false }));
   };
 
   // Manejar cambio en filtros
@@ -264,11 +364,9 @@ const MisActividades = () => {
   };
 
   // Cambiar tipo de vista y guardar en localStorage
-  const handleViewChange = (_: React.MouseEvent<HTMLElement>, newView: ViewType) => {
-    if (newView !== null) {
-      setViewType(newView);
-      localStorage.setItem('actividadesViewType', newView);
-    }
+  const handleViewChange = (newView: ViewType) => {
+    setViewType(newView);
+    localStorage.setItem('actividadesViewType', newView);
   };
 
   // Renderizar vista de tabla
@@ -388,25 +486,31 @@ const MisActividades = () => {
                 </TableCell>
                 <TableCell>
                   <Chip 
+                    icon={obtenerIconoEstado(actividad.estado)}
                     label={obtenerEtiquetaEstado(actividad.estado)}
                     size="small"
                     sx={{ 
                       background: obtenerColorFondoEstado(actividad.estado),
                       color: obtenerColorEstado(actividad.estado),
                       fontWeight: 600,
-                      borderRadius: '8px',
-                      minWidth: '100px',
-                      height: '28px',
-                      fontSize: '0.8rem',
+                      borderRadius: '12px',
+                      minWidth: '130px',
+                      height: '36px',
+                      fontSize: '0.85rem',
                       letterSpacing: '0.02em',
-                      border: `1px solid ${alpha(obtenerColorEstado(actividad.estado), 0.2)}`,
+                      border: `2px solid ${alpha(obtenerColorEstado(actividad.estado), 0.3)}`,
                       transition: 'all 0.2s ease',
-                      boxShadow: `0 2px 4px ${alpha(obtenerColorEstado(actividad.estado), 0.1)}`,
+                      boxShadow: `0 2px 8px ${alpha(obtenerColorEstado(actividad.estado), 0.15)}`,
                       backdropFilter: 'blur(8px)',
                       '&:hover': {
                         transform: 'translateY(-1px)',
-                        boxShadow: `0 4px 8px ${alpha(obtenerColorEstado(actividad.estado), 0.2)}`,
+                        boxShadow: `0 4px 12px ${alpha(obtenerColorEstado(actividad.estado), 0.25)}`,
                         background: obtenerColorFondoEstado(actividad.estado),
+                        border: `2px solid ${alpha(obtenerColorEstado(actividad.estado), 0.5)}`,
+                      },
+                      '& .MuiChip-icon': {
+                        color: 'inherit',
+                        marginLeft: '8px',
                       }
                     }}
                   />
@@ -482,29 +586,33 @@ const MisActividades = () => {
                 </TableCell>
                 <TableCell align="right">
                   <Box 
-                    className="actions-container"
                     sx={{ 
                       display: 'flex', 
                       gap: 1, 
                       justifyContent: 'flex-end',
-                      opacity: 0,
-                      transform: 'translateX(10px)',
-                      transition: 'all 0.3s ease',
+                      opacity: 1,
+                      transform: 'none',
+                      transition: 'all 0.2s ease',
                     }}
                   >
                     <Tooltip title="Editar" arrow TransitionComponent={Zoom}>
                       <IconButton 
                         size="small"
-                        onClick={() => handleVerDetalle(actividad)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditarActividad(actividad);
+                        }}
                         sx={{
                           color: theme.palette.primary.main,
                           backgroundColor: alpha(theme.palette.primary.main, 0.1),
                           backdropFilter: 'blur(8px)',
-                          width: 34,
-                          height: 34,
+                          width: 36,
+                          height: 36,
+                          border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
                           '&:hover': {
                             backgroundColor: alpha(theme.palette.primary.main, 0.2),
                             transform: 'translateY(-2px)',
+                            boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.2)}`,
                           },
                         }}
                       >
@@ -514,15 +622,21 @@ const MisActividades = () => {
                     <Tooltip title="Eliminar" arrow TransitionComponent={Zoom}>
                       <IconButton 
                         size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEliminarActividad(actividad);
+                        }}
                         sx={{
                           color: theme.palette.error.main,
                           backgroundColor: alpha(theme.palette.error.main, 0.1),
                           backdropFilter: 'blur(8px)',
-                          width: 34,
-                          height: 34,
+                          width: 36,
+                          height: 36,
+                          border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
                           '&:hover': {
                             backgroundColor: alpha(theme.palette.error.main, 0.2),
                             transform: 'translateY(-2px)',
+                            boxShadow: `0 4px 12px ${alpha(theme.palette.error.main, 0.2)}`,
                           },
                         }}
                       >
@@ -543,648 +657,532 @@ const MisActividades = () => {
     <Grid container spacing={3}>
       {actividadesFiltradas
         .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-        .map((actividad) => (
+        .map((actividad, index) => (
           <Grid item xs={12} sm={6} md={4} key={actividad.id}>
-            <Fade in={true} timeout={300}>
+            <Grow 
+              in={true} 
+              timeout={300 + (index % 5) * 100}
+              style={{ transformOrigin: '50% 10%' }}
+            >
               <Paper 
                 sx={{ 
-                  p: 3,
                   height: '100%',
-                  borderRadius: 4,
+                  borderRadius: '16px',
                   display: 'flex',
                   flexDirection: 'column',
-                  transition: 'all 0.3s ease',
-                  backgroundColor: alpha(theme.palette.background.paper, 0.6),
-                  backdropFilter: 'blur(20px)',
-                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  background: theme.palette.mode === 'dark' 
+                    ? `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.6)})`
+                    : `linear-gradient(145deg, ${alpha('#fff', 0.95)}, ${alpha('#fafafa', 0.85)})`,
+                  backdropFilter: 'blur(10px)',
+                  border: theme.palette.mode === 'dark'
+                    ? `1px solid ${alpha(theme.palette.divider, 0.1)}`
+                    : `1px solid ${alpha(theme.palette.primary.main, 0.05)}`,
                   position: 'relative',
                   overflow: 'hidden',
-                  '&::before': {
+                  boxShadow: `0 10px 30px -5px ${alpha(theme.palette.common.black, 0.1)}`,
+                  '&:hover': {
+                    transform: 'translateY(-12px)',
+                    boxShadow: `0 20px 40px -10px ${alpha(theme.palette.common.black, 0.15)}`,
+                    '& .card-actions': {
+                      opacity: 1,
+                    },
+                    '& .card-state-indicator': {
+                      height: '100%',
+                      opacity: 0.07,
+                    },
+                    '& .card-content': {
+                      transform: 'translateY(-5px)',
+                    }
+                  },
+                  '&:after': {
                     content: '""',
                     position: 'absolute',
                     top: 0,
                     left: 0,
-                    right: 0,
+                    width: '100%',
                     height: '100%',
-                    background: `linear-gradient(180deg, 
-                      ${alpha(theme.palette.primary.main, 0.02)} 0%, 
-                      ${alpha(theme.palette.background.paper, 0)} 100%)`,
-                    pointerEvents: 'none'
+                    background: `radial-gradient(circle at 50% 0%, ${alpha(obtenerColorEstado(actividad.estado), 0.1)}, transparent 70%)`,
+                    opacity: 0.8,
+                    zIndex: 0,
+                    transition: 'opacity 0.5s ease',
                   },
-                  '&:hover': {
-                    transform: 'translateY(-8px)',
-                    boxShadow: `0 20px 40px ${alpha(theme.palette.common.black, 0.1)}`,
-                    borderColor: alpha(theme.palette.primary.main, 0.2),
-                    '& .card-actions': {
-                      opacity: 1,
-                      transform: 'translateY(0)',
-                    }
-                  }
                 }}
                 onClick={() => handleVerDetalle(actividad)}
               >
-                <Box sx={{ position: 'relative' }}>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'flex-start',
-                    mb: 2 
-                  }}>
+                {/* Indicador de estado como línea lateral */}
+                <Box 
+                  className="card-state-indicator"
+                  sx={{ 
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    width: '6px',
+                    height: '30%',
+                    background: obtenerColorEstado(actividad.estado),
+                    borderRadius: '3px',
+                    transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    opacity: 0.6,
+                    zIndex: 1,
+                  }}
+                />
+
+                {/* Contenido de la tarjeta */}
+                <Box 
+                  className="card-content"
+                  sx={{ 
+                    position: 'relative',
+                    zIndex: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    height: '100%',
+                    p: 3,
+                  }}
+                >
+                  {/* Header con nombre y estado */}
+                  <Box sx={{ mb: 2.5 }}>
+                    <Box sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      mb: 1.5
+                    }}>
+                      <Chip 
+                        icon={obtenerIconoEstado(actividad.estado)}
+                        label={obtenerEtiquetaEstado(actividad.estado)}
+                        size="small"
+                        sx={{ 
+                          background: theme.palette.mode === 'dark'
+                            ? alpha(obtenerColorEstado(actividad.estado), 0.15)
+                            : alpha(obtenerColorEstado(actividad.estado), 0.12),
+                          color: obtenerColorEstado(actividad.estado),
+                          fontWeight: 600,
+                          borderRadius: '12px',
+                          height: '24px',
+                          fontSize: '0.7rem',
+                          border: `1px solid ${alpha(obtenerColorEstado(actividad.estado), 0.3)}`,
+                          backdropFilter: 'blur(5px)',
+                          mb: 1,
+                          '& .MuiChip-icon': {
+                            color: 'inherit',
+                            marginLeft: '4px',
+                            fontSize: '0.9rem',
+                          },
+                          '& .MuiChip-label': {
+                            px: 1,
+                            fontWeight: 700,
+                          }
+                        }}
+                      />
+                      
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          fontSize: '0.7rem',
+                          color: alpha(theme.palette.text.secondary, 0.7),
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5
+                        }}
+                      >
+                        <CalendarTodayIcon sx={{ fontSize: '0.8rem' }} />
+                        {formatearFecha(actividad.fecha)}
+                      </Typography>
+                    </Box>
+                    
                     <Typography 
                       variant="h6" 
-                      component="h2" 
                       sx={{ 
-                        fontWeight: 600,
+                        fontWeight: 700,
                         fontSize: '1.1rem',
-                        lineHeight: 1.3,
+                        lineHeight: 1.4,
+                        mb: 1,
                         color: theme.palette.text.primary,
-                        mb: 0.5
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
                       }}
                     >
                       {actividad.nombre}
                     </Typography>
                     
-                    <Chip 
-                      label={obtenerEtiquetaEstado(actividad.estado)}
-                      size="small"
-                      sx={{ 
-                        background: obtenerColorFondoEstado(actividad.estado),
-                        color: obtenerColorEstado(actividad.estado),
-                        fontWeight: 600,
-                        borderRadius: '8px',
-                        height: '28px',
-                        fontSize: '0.8rem',
-                        letterSpacing: '0.02em',
-                        border: `1px solid ${alpha(obtenerColorEstado(actividad.estado), 0.2)}`,
-                      }}
-                    />
-                  </Box>
-                  
-                  {actividad.descripcion && (
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        color: alpha(theme.palette.text.secondary, 0.8),
-                        mb: 3,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        lineHeight: 1.6,
-                        flex: 1
-                      }}
-                    >
-                      {actividad.descripcion}
-                    </Typography>
-                  )}
-                </Box>
-                
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: 2,
-                  mt: 'auto',
-                  pt: 3,
-                  borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: '10px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                        color: theme.palette.primary.main,
-                      }}
-                    >
-                      <CalendarTodayIcon />
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" sx={{ color: theme.palette.text.secondary, display: 'block', mb: 0.5 }}>
-                        Fecha
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {formatearFecha(actividad.fecha)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: '10px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: alpha(theme.palette.info.main, 0.08),
-                        color: theme.palette.info.main,
-                      }}
-                    >
-                      <AccessTimeIcon />
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" sx={{ color: theme.palette.text.secondary, display: 'block', mb: 0.5 }}>
-                        Horario
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {formatearHora(actividad.hora_inicio)} - {formatearHora(actividad.hora_fin)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  {actividad.proyecto_nombre ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Box
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: '10px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: alpha(theme.palette.success.main, 0.08),
-                          color: theme.palette.success.main,
+                    {actividad.descripcion && (
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: alpha(theme.palette.text.secondary, 0.9),
+                          fontSize: '0.85rem',
+                          lineHeight: 1.5,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          transition: 'all 0.3s ease',
+                          mb: 0.5
                         }}
                       >
-                        <FolderIcon />
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" sx={{ color: theme.palette.text.secondary, display: 'block', mb: 0.5 }}>
-                          Proyecto
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {actividad.proyecto_nombre}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Box
+                        {actividad.descripcion}
+                      </Typography>
+                    )}
+                  </Box>
+                  
+                  <Divider sx={{ 
+                    my: 1.5, 
+                    opacity: 0.5,
+                    background: `linear-gradient(90deg, ${alpha(theme.palette.divider, 0.05)}, ${alpha(theme.palette.divider, 0.7)}, ${alpha(theme.palette.divider, 0.05)})` 
+                  }} />
+                  
+                  {/* Detalles: Horario y Proyecto */}
+                  <Box sx={{ mt: 'auto' }}>
+                    {/* Horario */}
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      mb: 2,
+                      gap: 1.5,
+                    }}>
+                      <Avatar
                         sx={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: '10px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: alpha(theme.palette.grey[500], 0.08),
-                          color: theme.palette.grey[500],
+                          width: 34,
+                          height: 34,
+                          backgroundColor: alpha(theme.palette.info.main, 0.1),
+                          color: theme.palette.info.main,
+                          fontSize: '0.8rem',
+                          fontWeight: 700
                         }}
                       >
-                        <FolderIcon />
-                      </Box>
+                        <AccessTimeIcon sx={{ fontSize: '1rem' }} />
+                      </Avatar>
                       <Box>
-                        <Typography variant="caption" sx={{ color: theme.palette.text.secondary, display: 'block', mb: 0.5 }}>
-                          Proyecto
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: alpha(theme.palette.text.secondary, 0.7),
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            display: 'block',
+                            mb: 0.2
+                          }}
+                        >
+                          Horario
                         </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 500, color: alpha(theme.palette.text.secondary, 0.6), fontStyle: 'italic' }}>
-                          Sin proyecto
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 600,
+                            fontSize: '0.9rem',
+                            color: theme.palette.text.primary
+                          }}
+                        >
+                          {formatearHora(actividad.hora_inicio)} - {formatearHora(actividad.hora_fin)}
                         </Typography>
                       </Box>
                     </Box>
-                  )}
-                </Box>
+                    
+                    {/* Proyecto */}
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                    }}>
+                      <Avatar
+                        sx={{
+                          width: 34,
+                          height: 34,
+                          backgroundColor: actividad.proyecto_nombre
+                            ? alpha(theme.palette.success.main, 0.1)
+                            : alpha(theme.palette.grey[500], 0.1),
+                          color: actividad.proyecto_nombre
+                            ? theme.palette.success.main
+                            : theme.palette.grey[500],
+                          fontSize: '0.8rem',
+                          fontWeight: 700
+                        }}
+                      >
+                        <FolderIcon sx={{ fontSize: '1rem' }} />
+                      </Avatar>
+                      <Box sx={{ 
+                        maxWidth: 'calc(100% - 50px)',
+                        overflow: 'hidden'
+                      }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: alpha(theme.palette.text.secondary, 0.7),
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            display: 'block',
+                            mb: 0.2
+                          }}
+                        >
+                          Proyecto
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 600,
+                            fontSize: '0.9rem',
+                            color: theme.palette.text.primary,
+                            fontStyle: actividad.proyecto_nombre ? 'normal' : 'italic',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {actividad.proyecto_nombre || "Sin proyecto"}
+                        </Typography>
+                      </Box>
+                    </Box>
 
-                <Box 
-                  className="card-actions"
-                  sx={{ 
-                    position: 'absolute',
-                    bottom: 16,
-                    right: 16,
-                    display: 'flex',
-                    gap: 1,
-                    opacity: 0,
-                    transform: 'translateY(10px)',
-                    transition: 'all 0.3s ease',
-                    zIndex: 2,
-                  }}
-                >
-                  <IconButton 
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleVerDetalle(actividad);
-                    }}
-                    sx={{
-                      color: theme.palette.primary.main,
-                      backgroundColor: alpha(theme.palette.background.paper, 0.9),
-                      backdropFilter: 'blur(8px)',
-                      border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-                      width: 34,
-                      height: 34,
-                      '&:hover': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                        transform: 'translateY(-2px)',
-                      },
-                    }}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton 
-                    size="small"
-                    onClick={(e) => e.stopPropagation()}
-                    sx={{
-                      color: theme.palette.error.main,
-                      backgroundColor: alpha(theme.palette.background.paper, 0.9),
-                      backdropFilter: 'blur(8px)',
-                      border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
-                      width: 34,
-                      height: 34,
-                      '&:hover': {
-                        backgroundColor: alpha(theme.palette.error.main, 0.1),
-                        transform: 'translateY(-2px)',
-                      },
-                    }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+                    {/* Espacio para separar los botones de acción */}
+                    <Box sx={{ mt: 2.5, pt: 1.5, position: 'relative' }}>
+                      <Divider sx={{ 
+                        opacity: 0.3,
+                        background: `linear-gradient(90deg, ${alpha(theme.palette.divider, 0.05)}, ${alpha(theme.palette.divider, 0.5)}, ${alpha(theme.palette.divider, 0.05)})`,
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0
+                      }} />
+                      
+                      {/* Botones de acción */}
+                      <Box 
+                        sx={{ 
+                          display: 'flex', 
+                          justifyContent: 'flex-end',
+                          gap: 1.5
+                        }}
+                      >
+                        <Button
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditarActividad(actividad);
+                          }}
+                          startIcon={<EditIcon sx={{ fontSize: '0.9rem' }} />}
+                          sx={{
+                            borderRadius: '8px',
+                            backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                            color: theme.palette.primary.main,
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            textTransform: 'none',
+                            border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                            px: 1.5,
+                            py: 0.5,
+                            minWidth: 0,
+                            '&:hover': {
+                              backgroundColor: alpha(theme.palette.primary.main, 0.15),
+                              boxShadow: `0 4px 10px ${alpha(theme.palette.primary.main, 0.2)}`,
+                              transform: 'translateY(-2px)',
+                            },
+                          }}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEliminarActividad(actividad);
+                          }}
+                          startIcon={<DeleteIcon sx={{ fontSize: '0.9rem' }} />}
+                          sx={{
+                            borderRadius: '8px',
+                            backgroundColor: alpha(theme.palette.error.main, 0.08),
+                            color: theme.palette.error.main,
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            textTransform: 'none',
+                            border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
+                            px: 1.5,
+                            py: 0.5,
+                            minWidth: 0,
+                            '&:hover': {
+                              backgroundColor: alpha(theme.palette.error.main, 0.15),
+                              boxShadow: `0 4px 10px ${alpha(theme.palette.error.main, 0.2)}`,
+                              transform: 'translateY(-2px)',
+                            },
+                          }}
+                        >
+                          Eliminar
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Box>
                 </Box>
               </Paper>
-            </Fade>
+            </Grow>
           </Grid>
         ))}
     </Grid>
   );
 
   return (
-    <Box sx={{ width: '100%', minHeight: '100vh', pb: 4 }}>
-      {/* Header y Breadcrumb */}
-      <Box 
-        sx={{ 
-          position: 'relative',
-          mb: 4,
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: -24,
-            left: -24,
-            right: -24,
-            height: '320px',
-            background: `linear-gradient(135deg, 
-              ${alpha(theme.palette.primary.main, 0.15)} 0%, 
-              ${alpha(theme.palette.primary.dark, 0.05)} 100%)`,
-            filter: 'blur(60px)',
-            borderRadius: '0 0 50% 50%',
-            pointerEvents: 'none',
-            zIndex: 0
-          }
-        }}
-      >
-        <Box sx={{ 
-          position: 'relative',
-          zIndex: 1,
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            mb: 2,
-            pl: 0.5
-          }}>
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'center',
-              borderRadius: 2,
-              padding: '4px',
-              '& > a, & > div': {
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                transition: 'all 0.2s ease',
-                '&:not(:last-child):after': {
-                  content: '""',
-                  display: 'block',
-                  width: '4px',
-                  height: '4px',
-                  borderRadius: '50%',
-                  backgroundColor: alpha(theme.palette.text.secondary, 0.4),
-                  margin: '0 12px'
-                }
-              }
-            }}>
-              <Box 
-                component="a" 
-                href="/" 
-                sx={{ 
-                  color: theme.palette.text.secondary,
-                  textDecoration: 'none',
-                  fontSize: '0.85rem',
-                  fontWeight: 500,
-                  display: 'flex',
-                  alignItems: 'center',
-                  py: 0.5,
-                  px: 1.5,
-                  borderRadius: 1.5,
-                  '&:hover': {
-                    color: theme.palette.primary.main,
-                    bgcolor: alpha(theme.palette.primary.main, 0.08)
-                  }
-                }}
-              >
-                <HomeIcon sx={{ fontSize: 18, mr: 0.75, opacity: 0.8 }} />
-                Inicio
-              </Box>
-              
-              <Box sx={{ 
-                color: theme.palette.primary.main, 
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                fontSize: '0.85rem',
-                py: 0.5,
-                px: 1.5,
-                borderRadius: 1.5,
-                bgcolor: alpha(theme.palette.primary.main, 0.12),
-              }}>
-                <FolderIcon sx={{ fontSize: 18, mr: 0.75 }} />
-                Mis Actividades
-              </Box>
-            </Box>
-          </Box>
-
-          {/* Cabecera con título y acciones */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            mb: 4,
-            flexWrap: 'wrap', 
-            gap: 2 
-          }}>
-            <Box>
-              <Typography 
-                variant="h4" 
-                component="h1" 
-                sx={{ 
-                  fontWeight: 800,
-                  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  letterSpacing: '-0.02em',
-                  mb: 1
-                }}
-              >
-                Mis Actividades
-              </Typography>
-              <Typography 
-                variant="body1" 
-                sx={{ 
-                  color: alpha(theme.palette.text.secondary, 0.8),
-                  maxWidth: '600px'
-                }}
-              >
-                Gestiona y visualiza todas tus actividades registradas. Utiliza los filtros para encontrar actividades específicas.
-              </Typography>
-            </Box>
-            
+    <Fade in={true} timeout={800}>
+      <Box sx={{ width: '100%', minHeight: '100vh', pb: 4 }}>
+        {/* Header y Breadcrumb */}
+        <Box 
+          sx={{ 
+            position: 'relative',
+            mb: 4
+          }}
+        >
+          {/* Header Content */}
+          <Box sx={{ mb: 4 }}>
             <Box sx={{ 
               display: 'flex', 
-              gap: 2, 
+              justifyContent: 'space-between',
               alignItems: 'center',
-              borderRadius: 3,
-              padding: '6px',
+              mb: 3
             }}>
-              <ToggleButtonGroup
-                value={viewType}
-                exclusive
-                onChange={handleViewChange}
-                size="small"
-                sx={{ 
-                  border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                  borderRadius: 2,
-                  overflow: 'hidden',
-                  backgroundColor: 'transparent',
-                  '& .MuiToggleButton-root': {
-                    border: 'none !important',
-                    borderLeft: 'none !important',
-                    borderRight: 'none !important',
-                    borderTop: 'none !important',
-                    borderBottom: 'none !important',
-                    outline: 'none !important',
-                    px: 2,
-                    py: 1,
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                    },
-                    '&.Mui-selected': {
-                      backgroundColor: alpha(theme.palette.primary.main, 0.12),
-                      color: theme.palette.primary.main,
-                      '&:hover': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.18),
-                      }
-                    },
-                    '&:focus': {
-                      outline: 'none !important',
-                      border: 'none !important',
-                    }
-                  }
-                }}
-              >
-                <ToggleButton value="cards">
-                  <ViewModuleIcon fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="table">
-                  <ViewListIcon fontSize="small" />
-                </ToggleButton>
-              </ToggleButtonGroup>
-
-              <Button
-                variant="outlined"
-                startIcon={<FilterListIcon />}
-                onClick={() => setMostrarFiltros(!mostrarFiltros)}
-                sx={{ 
-                  borderRadius: 2,
-                  borderWidth: 1,
-                  px: 2,
-                  py: 1,
-                  backgroundColor: mostrarFiltros ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-                  borderColor: mostrarFiltros ? theme.palette.primary.main : alpha(theme.palette.divider, 0.2),
-                  color: mostrarFiltros ? theme.palette.primary.main : theme.palette.text.primary,
-                  '&:hover': {
-                    borderWidth: 1,
-                    transform: 'translateY(-1px)',
-                    boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.08)}`
-                  }
-                }}
-              >
-                Filtros
-              </Button>
-              
-              <Button
-                variant="contained"
-                startIcon={<RefreshIcon />}
-                onClick={cargarActividades}
-                sx={{ 
-                  borderRadius: 2,
-                  px: 2,
-                  py: 1,
-                  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                  boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
-                  '&:hover': {
-                    transform: 'translateY(-1px)',
-                    boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.35)}`
-                  }
-                }}
-              >
-                Actualizar
-              </Button>
-            </Box>
-          </Box>
-
-          {/* Panel de filtros */}
-          <Collapse in={mostrarFiltros}>
-            <Paper 
-              elevation={0}
-              sx={{ 
-                p: 3, 
-                mb: 4, 
-                borderRadius: 3, 
-                backgroundColor: alpha(theme.palette.background.paper, 0.6),
-                backdropFilter: 'blur(20px)',
-                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                position: 'relative',
-                overflow: 'hidden',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: '100%',
-                  background: `linear-gradient(135deg, 
-                    ${alpha(theme.palette.primary.main, 0.02)} 0%, 
-                    ${alpha(theme.palette.background.paper, 0)} 100%)`,
-                  pointerEvents: 'none'
-                }
-              }}
-            >
+              {/* Title */}
               <Typography 
-                variant="h6" 
-                gutterBottom 
+                variant="h4" 
                 sx={{ 
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  fontSize: { xs: '1.5rem', md: '1.75rem' },
                   color: theme.palette.text.primary,
-                  mb: 3
+                  letterSpacing: '-0.5px'
                 }}
               >
-                Filtros de Búsqueda
+                Mis Actividades
               </Typography>
-              
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Fecha Inicio"
-                    type="date"
-                    name="fechaInicio"
-                    value={filtros.fechaInicio || ''}
-                    onChange={handleChangeFiltro}
-                    InputLabelProps={{ shrink: true }}
+
+              {/* Breadcrumb y Botones */}
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                gap: 2
+              }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  gap: 1,
+                  py: 1,
+                  px: 2
+                }}>
+                  <Box
                     sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
-                        backdropFilter: 'blur(8px)',
-                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          backgroundColor: alpha(theme.palette.background.paper, 0.9),
-                          border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-                        },
-                        '&.Mui-focused': {
-                          backgroundColor: theme.palette.background.paper,
-                          border: `1px solid ${theme.palette.primary.main}`,
-                          boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
-                        }
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: theme.palette.primary.main,
+                      textDecoration: 'none',
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        color: theme.palette.primary.dark,
+                        transform: 'translateY(-1px)'
                       }
                     }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Fecha Fin"
-                    type="date"
-                    name="fechaFin"
-                    value={filtros.fechaFin || ''}
-                    onChange={handleChangeFiltro}
-                    InputLabelProps={{ shrink: true }}
+                    component="a"
+                    href="/"
+                  >
+                    <Avatar
+                      sx={{
+                        width: 24,
+                        height: 24,
+                        bgcolor: alpha(theme.palette.primary.main, 0.1),
+                        color: 'inherit'
+                      }}
+                    >
+                      <HomeIcon sx={{ fontSize: 16 }} />
+                    </Avatar>
+                    <Typography
+                      sx={{
+                        ml: 1,
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        color: 'inherit'
+                      }}
+                    >
+                      Inicio
+                    </Typography>
+                  </Box>
+
+                  <Box
                     sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
-                        backdropFilter: 'blur(8px)',
-                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          backgroundColor: alpha(theme.palette.background.paper, 0.9),
-                          border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-                        },
-                        '&.Mui-focused': {
-                          backgroundColor: theme.palette.background.paper,
-                          border: `1px solid ${theme.palette.primary.main}`,
-                          boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
-                        }
-                      }
-                    }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    select
-                    fullWidth
-                    label="Estado"
-                    name="estado"
-                    value={filtros.estado || ''}
-                    onChange={handleChangeFiltro}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
-                        backdropFilter: 'blur(8px)',
-                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          backgroundColor: alpha(theme.palette.background.paper, 0.9),
-                          border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-                        },
-                        '&.Mui-focused': {
-                          backgroundColor: theme.palette.background.paper,
-                          border: `1px solid ${theme.palette.primary.main}`,
-                          boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
-                        }
-                      }
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: theme.palette.text.primary
                     }}
                   >
-                    <MenuItem value="">Todos los estados</MenuItem>
-                    <MenuItem value="pendiente">Pendiente</MenuItem>
-                    <MenuItem value="en_progreso">En Progreso</MenuItem>
-                    <MenuItem value="completada">Completada</MenuItem>
-                    <MenuItem value="enviado">Enviado</MenuItem>
-                    <MenuItem value="borrador">Borrador</MenuItem>
-                  </TextField>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Button 
-                    variant="outlined" 
-                    color="primary" 
-                    onClick={handleLimpiarFiltros}
-                    startIcon={<ClearIcon />}
-                    fullWidth
+                    <Typography sx={{ mx: 1, color: theme.palette.text.secondary }}>/</Typography>
+                    <Avatar
+                      sx={{
+                        width: 24,
+                        height: 24,
+                        bgcolor: alpha(theme.palette.info.main, 0.1),
+                        color: theme.palette.info.main
+                      }}
+                    >
+                      <AssignmentIcon sx={{ fontSize: 16 }} />
+                    </Avatar>
+                    <Typography
+                      sx={{
+                        ml: 1,
+                        fontSize: '0.875rem',
+                        fontWeight: 600
+                      }}
+                    >
+                      Mis Actividades
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Divider orientation="vertical" flexItem sx={{ height: 24, my: 'auto' }} />
+
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Tooltip title="Vista de tabla" arrow>
+                    <IconButton 
+                      onClick={() => handleViewChange('table')}
+                      sx={{ 
+                        borderRadius: '12px',
+                        backgroundColor: viewType === 'table' ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                        color: viewType === 'table' ? theme.palette.primary.main : theme.palette.text.secondary,
+                        '&:hover': {
+                          backgroundColor: viewType === 'table' ? alpha(theme.palette.primary.main, 0.2) : alpha(theme.palette.primary.main, 0.1),
+                        },
+                      }}
+                    >
+                      <ViewListIcon />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Vista de tarjetas" arrow>
+                    <IconButton 
+                      onClick={() => handleViewChange('cards')}
+                      sx={{ 
+                        borderRadius: '12px',
+                        backgroundColor: viewType === 'cards' ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                        color: viewType === 'cards' ? theme.palette.primary.main : theme.palette.text.secondary,
+                        '&:hover': {
+                          backgroundColor: viewType === 'cards' ? alpha(theme.palette.primary.main, 0.2) : alpha(theme.palette.primary.main, 0.1),
+                        },
+                      }}
+                    >
+                      <ViewModuleIcon />
+                    </IconButton>
+                  </Tooltip>
+
+                  <Button
+                    variant="outlined"
+                    startIcon={<FilterListIcon />}
+                    onClick={() => setMostrarFiltros(!mostrarFiltros)}
                     sx={{ 
-                      borderRadius: 2,
-                      height: '56px',
+                      borderRadius: '12px',
                       borderWidth: 1,
-                      backgroundColor: alpha(theme.palette.background.paper, 0.8),
-                      backdropFilter: 'blur(8px)',
+                      px: 2,
+                      py: 1,
+                      backgroundColor: mostrarFiltros ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
+                      borderColor: mostrarFiltros ? theme.palette.primary.main : alpha(theme.palette.divider, 0.2),
+                      color: mostrarFiltros ? theme.palette.primary.main : theme.palette.text.primary,
                       '&:hover': {
                         borderWidth: 1,
                         transform: 'translateY(-1px)',
@@ -1192,170 +1190,382 @@ const MisActividades = () => {
                       }
                     }}
                   >
-                    Limpiar Filtros
+                    Filtros
                   </Button>
-                </Grid>
-              </Grid>
-            </Paper>
-          </Collapse>
-          
-          {/* Barra de búsqueda */}
-          <TextField
-            fullWidth
-            placeholder="Buscar por nombre, descripción o proyecto..."
-            variant="outlined"
-            name="busqueda"
-            value={filtros.busqueda}
-            onChange={handleChangeFiltro}
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Panel de filtros */}
+        <Collapse in={mostrarFiltros}>
+          <Paper 
+            elevation={0}
             sx={{ 
-              mb: 4,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 3,
-                backgroundColor: alpha(theme.palette.background.paper, 0.6),
-                backdropFilter: 'blur(20px)',
-                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                transition: 'all 0.2s ease',
-                padding: '4px 8px',
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.background.paper, 0.8),
-                  border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-                },
-                '&.Mui-focused': {
-                  backgroundColor: alpha(theme.palette.background.paper, 0.9),
-                  border: `1px solid ${theme.palette.primary.main}`,
-                  boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
-                }
+              p: 3, 
+              mb: 4, 
+              borderRadius: 3, 
+              backgroundColor: alpha(theme.palette.background.paper, 0.6),
+              backdropFilter: 'blur(20px)',
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '100%',
+                background: `linear-gradient(135deg, 
+                  ${alpha(theme.palette.primary.main, 0.02)} 0%, 
+                  ${alpha(theme.palette.background.paper, 0)} 100%)`,
+                pointerEvents: 'none'
               }
             }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: theme.palette.text.secondary, ml: 1 }} />
-                </InputAdornment>
-              ),
-              endAdornment: filtros.busqueda ? (
-                <InputAdornment position="end">
-                  <IconButton 
-                    onClick={() => setFiltros(prev => ({ ...prev, busqueda: '' }))}
-                    edge="end"
-                    sx={{
-                      color: theme.palette.text.secondary,
+          >
+            <Typography 
+              variant="h6" 
+              gutterBottom 
+              sx={{ 
+                fontWeight: 600,
+                color: theme.palette.text.primary,
+                mb: 3
+              }}
+            >
+              Filtros de Búsqueda
+            </Typography>
+            
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  label="Fecha Inicio"
+                  type="date"
+                  name="fechaInicio"
+                  value={filtros.fechaInicio || ''}
+                  onChange={handleChangeFiltro}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                      backdropFilter: 'blur(8px)',
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      transition: 'all 0.2s ease',
                       '&:hover': {
-                        color: theme.palette.primary.main,
-                        backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                        backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                        border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                      },
+                      '&.Mui-focused': {
+                        backgroundColor: theme.palette.background.paper,
+                        border: `1px solid ${theme.palette.primary.main}`,
+                        boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
                       }
-                    }}
-                  >
-                    <ClearIcon />
-                  </IconButton>
-                </InputAdornment>
-              ) : null
-            }}
-          />
-        </Box>
-      </Box>
+                    }
+                  }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  label="Fecha Fin"
+                  type="date"
+                  name="fechaFin"
+                  value={filtros.fechaFin || ''}
+                  onChange={handleChangeFiltro}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                      backdropFilter: 'blur(8px)',
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                        border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                      },
+                      '&.Mui-focused': {
+                        backgroundColor: theme.palette.background.paper,
+                        border: `1px solid ${theme.palette.primary.main}`,
+                        boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
+                      }
+                    }
+                  }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Estado"
+                  name="estado"
+                  value={filtros.estado || ''}
+                  onChange={handleChangeFiltro}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                      backdropFilter: 'blur(8px)',
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                        border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                      },
+                      '&.Mui-focused': {
+                        backgroundColor: theme.palette.background.paper,
+                        border: `1px solid ${theme.palette.primary.main}`,
+                        boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
+                      }
+                    }
+                  }}
+                >
+                  <MenuItem value="">Todos los estados</MenuItem>
+                  <MenuItem value="pendiente">Pendiente</MenuItem>
+                  <MenuItem value="en_progreso">En Progreso</MenuItem>
+                  <MenuItem value="completada">Completada</MenuItem>
+                  <MenuItem value="enviado">Enviado</MenuItem>
+                  <MenuItem value="borrador">Borrador</MenuItem>
+                </TextField>
+              </Grid>
+              
+              <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
+                <Button 
+                  variant="outlined" 
+                  color="primary" 
+                  onClick={handleLimpiarFiltros}
+                  startIcon={<ClearIcon />}
+                  fullWidth
+                  sx={{ 
+                    borderRadius: 2,
+                    height: '56px',
+                    borderWidth: 1,
+                    backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                    backdropFilter: 'blur(8px)',
+                    '&:hover': {
+                      borderWidth: 1,
+                      transform: 'translateY(-1px)',
+                      boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.08)}`
+                    }
+                  }}
+                >
+                  Limpiar Filtros
+                </Button>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Collapse>
+        
+        {/* Barra de búsqueda */}
+        <TextField
+          fullWidth
+          placeholder="Buscar por nombre, descripción o proyecto..."
+          variant="outlined"
+          name="busqueda"
+          value={filtros.busqueda}
+          onChange={handleChangeFiltro}
+          sx={{ 
+            mb: 4,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 3,
+              backgroundColor: alpha(theme.palette.background.paper, 0.6),
+              backdropFilter: 'blur(20px)',
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              transition: 'all 0.2s ease',
+              padding: '4px 8px',
+              '&:hover': {
+                backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+              },
+              '&.Mui-focused': {
+                backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                border: `1px solid ${theme.palette.primary.main}`,
+                boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
+              }
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: theme.palette.text.secondary, ml: 1 }} />
+              </InputAdornment>
+            ),
+            endAdornment: filtros.busqueda ? (
+              <InputAdornment position="end">
+                <IconButton 
+                  onClick={() => setFiltros(prev => ({ ...prev, busqueda: '' }))}
+                  edge="end"
+                  sx={{
+                    color: theme.palette.text.secondary,
+                    '&:hover': {
+                      color: theme.palette.primary.main,
+                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                    }
+                  }}
+                >
+                  <ClearIcon />
+                </IconButton>
+              </InputAdornment>
+            ) : null
+          }}
+        />
 
       {/* Contenido principal */}
-      {cargando ? (
-        <Box sx={{ py: 2 }}>
-          {viewType === 'table' ? (
-            <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    {[...Array(6)].map((_, index) => (
-                      <TableCell key={index}>
-                        <Skeleton variant="text" width={100} />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {[...Array(3)].map((_, index) => (
-                    <TableRow key={index}>
-                      {[...Array(6)].map((_, cellIndex) => (
-                        <TableCell key={cellIndex}>
-                          <Skeleton variant="text" width={cellIndex === 0 ? 200 : 100} />
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ) : (
-            <Grid container spacing={2}>
-              {[...Array(6)].map((_, index) => (
-                <Grid item xs={12} sm={6} md={4} key={index}>
-                  <Paper sx={{ p: 2, height: '100%', borderRadius: 2 }}>
-                    <Skeleton variant="text" width="60%" height={32} />
-                    <Skeleton variant="text" width="40%" height={24} />
-                    <Box sx={{ mt: 2 }}>
-                      <Skeleton variant="text" width="100%" height={60} />
-                    </Box>
-                    <Box sx={{ mt: 2 }}>
-                      {[...Array(3)].map((_, i) => (
-                        <Skeleton key={i} variant="text" width="80%" height={24} sx={{ mt: 1 }} />
-                      ))}
-                    </Box>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </Box>
-      ) : actividadesFiltradas.length === 0 ? (
-        <Paper 
-          sx={{ 
-            p: 4, 
-            textAlign: 'center', 
-            borderRadius: 2,
-            backgroundColor: alpha(theme.palette.background.paper, 0.8),
-            backdropFilter: 'blur(10px)',
-            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`
+      <Grow in={true} style={{ transformOrigin: '0 0 0' }} timeout={800}>
+        {cargando ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
+            <CircularProgress />
+          </Box>
+        ) : actividadesFiltradas.length === 0 ? (
+          <Paper 
+            sx={{ 
+              p: 4, 
+              textAlign: 'center', 
+              borderRadius: 2,
+              backgroundColor: alpha(theme.palette.background.paper, 0.8),
+              backdropFilter: 'blur(10px)',
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`
+            }}
+          >
+            <Typography variant="h6" color="textSecondary" gutterBottom>
+              No se encontraron actividades
+            </Typography>
+            <Typography variant="body1" color="textSecondary">
+              Intenta cambiar los filtros o crear una nueva actividad
+            </Typography>
+          </Paper>
+        ) : (
+          <Box>
+            {viewType === 'table' ? renderTableView() : renderCardsView()}
+            
+            {/* Paginación */}
+            <TablePagination
+              component="div"
+              count={actividadesFiltradas.length}
+              page={page}
+              onPageChange={handleChangePage}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Filas por página:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+              sx={{
+                mt: 2,
+                borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              }}
+            />
+          </Box>
+        )}
+      </Grow>
+        
+        {/* Modal de detalle */}
+        {actividadSeleccionada && (
+          <ActividadDetalleModal
+            open={verDetalleDialogo}
+            onClose={handleCerrarDetalle}
+            actividad={actividadSeleccionada}
+            esEditable={true}
+          />
+        )}
+
+        {/* Modal de confirmación de eliminación */}
+        <Dialog
+          open={mostrarConfirmacion}
+          onClose={() => setMostrarConfirmacion(false)}
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              minWidth: 400,
+              maxWidth: 500,
+              background: alpha(theme.palette.background.paper, 0.9),
+              backdropFilter: 'blur(20px)',
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            }
           }}
         >
-          <Typography variant="h6" color="textSecondary" gutterBottom>
-            No se encontraron actividades
-          </Typography>
-          <Typography variant="body1" color="textSecondary">
-            Intenta cambiar los filtros o crear una nueva actividad
-          </Typography>
-        </Paper>
-      ) : (
-        <Box>
-          {viewType === 'table' ? renderTableView() : renderCardsView()}
-          
-          {/* Paginación */}
-          <TablePagination
-            component="div"
-            count={actividadesFiltradas.length}
-            page={page}
-            onPageChange={handleChangePage}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            labelRowsPerPage="Filas por página:"
-            labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
-            sx={{
-              mt: 2,
-              borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          <DialogTitle sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            color: theme.palette.error.main,
+            pb: 1
+          }}>
+            <DeleteIcon />
+            Confirmar Eliminación
+          </DialogTitle>
+          <DialogContent>
+            <Typography>
+              ¿Estás seguro de que deseas eliminar la actividad "{actividadAEliminar?.descripcion || ''}"?
+              Esta acción no se puede deshacer.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, pt: 0 }}>
+            <Button 
+              onClick={() => setMostrarConfirmacion(false)}
+              sx={{ 
+                borderRadius: 2,
+                px: 3,
+                py: 1,
+                color: theme.palette.text.secondary,
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.grey[500], 0.08),
+                }
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={confirmarEliminacion}
+              disabled={eliminando}
+              startIcon={eliminando ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
+              sx={{ 
+                borderRadius: 2,
+                px: 3,
+                py: 1,
+                background: `linear-gradient(45deg, ${theme.palette.error.main} 30%, ${theme.palette.error.dark} 90%)`,
+                boxShadow: `0 4px 12px ${alpha(theme.palette.error.main, 0.2)}`,
+                '&:hover': {
+                  boxShadow: `0 6px 16px ${alpha(theme.palette.error.main, 0.3)}`,
+                  transform: 'translateY(-1px)',
+                },
+                '&:disabled': {
+                  background: alpha(theme.palette.error.main, 0.5),
+                }
+              }}
+            >
+              {eliminando ? 'Eliminando...' : 'Eliminar'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Notificaciones */}
+        <Snackbar
+          open={notificacion.abierta}
+          autoHideDuration={6000}
+          onClose={handleCerrarNotificacion}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleCerrarNotificacion} 
+            severity={notificacion.tipo}
+            sx={{ 
+              borderRadius: 2,
+              minWidth: '300px',
+              boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.1)}`,
             }}
-          />
-        </Box>
-      )}
-      
-      {/* Modal de detalle */}
-      {actividadSeleccionada && (
-        <ActividadDetalleModal
-          open={verDetalleDialogo}
-          onClose={handleCerrarDetalle}
-          actividad={actividadSeleccionada}
-          onActividadActualizada={handleActividadActualizada}
-          esEditable={true}
-        />
-      )}
-    </Box>
+          >
+            {notificacion.mensaje}
+          </Alert>
+        </Snackbar>
+      </Box>
+    </Fade>
   );
 };
 

@@ -4,6 +4,19 @@
 import supabase from '../config/supabase'
 import { Usuario, UsuarioRegistro, UsuarioActualizar } from '../types/usuario.types'
 
+export interface IUsuario {
+  id: string;
+  nombre_usuario: string;
+  email: string;
+  rol: 'admin' | 'supervisor' | 'funcionario';
+  activo: boolean;
+  nombres: string;
+  appaterno: string;
+  apmaterno?: string;
+  rut: string;
+  avatar?: string;
+}
+
 // Función para validar RUT chileno
 const validarRut = (rut: string): boolean => {
   // Eliminar puntos y guión
@@ -289,3 +302,29 @@ export const esSupervisadoPor = async (usuarioId: string, supervisorId: string) 
   if (error && error.code !== 'PGRST116') throw error
   return !!data
 }
+
+// Obtener usuarios por IDs
+export const obtenerUsuariosPorIds = async (ids: string[]): Promise<IUsuario[]> => {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('*')
+    .in('id', ids);
+
+  if (error) throw error;
+  return data || [];
+};
+
+export const obtenerUsuariosPorProyecto = async (proyectoId: string): Promise<IUsuario[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('proyecto_id', proyectoId);
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error al obtener usuarios por proyecto:', error);
+    throw error;
+  }
+};

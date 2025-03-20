@@ -2,7 +2,7 @@
 // Este modelo maneja la interacción con la tabla de documentos en la base de datos
 
 import supabase from '../config/supabase'
-import { Documento, DocumentoCrear } from '../types/documentos.types'
+import { Documento as DocumentoType, DocumentoCrear } from '../types/documentos.types'
 
 // Obtener un documento por ID
 export const obtenerDocumentoPorId = async (id: string) => {
@@ -51,17 +51,41 @@ export const eliminarDocumento = async (id: string) => {
 
   if (errorConsulta) throw errorConsulta
 
-  // Extraer el nombre del archivo de la ruta
-  const rutaArchivo = documento.ruta_archivo.split('/').pop()
+  // Extraer el nombre del archivo de la URL pública
+  let rutaArchivo = '';
   
-  // Eliminar el archivo del storage
+  try {
+    // Si es una URL completa (comienza con http o https)
+    if (documento.ruta_archivo.startsWith('http')) {
+      const url = new URL(documento.ruta_archivo);
+      // La ruta en Supabase Storage está en el pathname después del bucket
+      const pathname = url.pathname;
+      // Encontrar la posición después de "/documentos/"
+      const bucketPos = pathname.indexOf('/documentos/');
+      if (bucketPos !== -1) {
+        rutaArchivo = pathname.substring(bucketPos + 12); // +12 para saltar "/documentos/"
+      }
+    } else {
+      // Si es solo una ruta relativa
+      rutaArchivo = documento.ruta_archivo;
+    }
+  } catch (e) {
+    console.error('Error al extraer ruta de archivo:', e);
+    // En caso de error, usar la forma anterior como fallback
+    rutaArchivo = documento.ruta_archivo.split('/').pop() || '';
+  }
+  
+  // Eliminar el archivo del storage si se pudo extraer la ruta
   if (rutaArchivo) {
     const { error: errorStorage } = await supabase
       .storage
       .from('documentos')
       .remove([rutaArchivo])
     
-    if (errorStorage) throw errorStorage
+    if (errorStorage) {
+      console.error('Error al eliminar archivo de storage:', errorStorage);
+      // No lanzamos error para continuar con la eliminación del registro
+    }
   }
 
   // Eliminar el registro de la base de datos
@@ -85,8 +109,29 @@ export const obtenerUrlFirmada = async (id: string) => {
 
   if (errorConsulta) throw errorConsulta
 
-  // Extraer el nombre del archivo de la ruta
-  const rutaArchivo = documento.ruta_archivo.split('/').pop()
+  // Extraer el nombre del archivo de la URL pública
+  let rutaArchivo = '';
+  
+  try {
+    // Si es una URL completa (comienza con http o https)
+    if (documento.ruta_archivo.startsWith('http')) {
+      const url = new URL(documento.ruta_archivo);
+      // La ruta en Supabase Storage está en el pathname después del bucket
+      const pathname = url.pathname;
+      // Encontrar la posición después de "/documentos/"
+      const bucketPos = pathname.indexOf('/documentos/');
+      if (bucketPos !== -1) {
+        rutaArchivo = pathname.substring(bucketPos + 12); // +12 para saltar "/documentos/"
+      }
+    } else {
+      // Si es solo una ruta relativa
+      rutaArchivo = documento.ruta_archivo;
+    }
+  } catch (e) {
+    console.error('Error al extraer ruta de archivo:', e);
+    // En caso de error, usar la forma anterior como fallback
+    rutaArchivo = documento.ruta_archivo.split('/').pop() || '';
+  }
   
   if (!rutaArchivo) throw new Error('Ruta de archivo no válida')
 
@@ -98,4 +143,50 @@ export const obtenerUrlFirmada = async (id: string) => {
 
   if (error) throw error
   return data.signedUrl
+}
+
+// Interfaz para documentos
+export interface IDocumento {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  url: string;
+  tipo: string;
+  tamano: number;
+  id_proyecto: string;
+  id_usuario: string;
+  fecha_creacion: Date;
+  fecha_actualizacion: Date;
+}
+
+// Obtener documentos de múltiples actividades
+export const obtenerDocumentosPorActividades = async (actividadesIds: string[]) => {
+  if (!actividadesIds.length) return [];
+  
+  const { data, error } = await supabase
+    .from('documentos')
+    .select('*')
+    .in('id_actividad', actividadesIds)
+    .order('fecha_creacion', { ascending: false })
+
+  if (error) throw error
+  return data || []
+}
+
+// Obtener documentos por proyecto
+export const obtenerDocumentosPorProyecto = async (idProyecto: string): Promise<IDocumento[]> => {
+  const { data, error } = await supabase
+    .from('documentos')
+    .select(`
+      *,
+      usuarios (
+        nombres,
+        appaterno
+      )
+    `)
+    .eq('id_proyecto', idProyecto)
+    .order('fecha_creacion', { ascending: false })
+
+  if (error) throw error
+  return data || []
 }

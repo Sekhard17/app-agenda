@@ -27,13 +27,10 @@ import {
   Folder as FolderIcon,
   ArrowForward as ArrowForwardIcon,
   ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
   Today as TodayIcon,
   Info as InfoIcon,
   Assignment as AssignmentIcon,
-  Group as GroupIcon,
-  NavigateNext as NavigateNextIcon,
-  NavigateBefore as NavigateBeforeIcon
+  Group as GroupIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Proyecto, Actividad } from '../../services/dashboard.service';
@@ -65,7 +62,11 @@ const ActividadesHoyModal: React.FC<ActividadesHoyModalProps> = ({ open, onClose
     actividades.forEach(actividad => {
       if (!actividadesPorUsuario.has(actividad.usuario.id)) {
         actividadesPorUsuario.set(actividad.usuario.id, {
-          usuario: actividad.usuario,
+          usuario: {
+            ...actividad.usuario,
+            // Asegurar que el nombre siempre tenga un valor válido
+            nombre: actividad.usuario.nombre || 'Usuario'
+          },
           actividades: []
         });
       }
@@ -78,7 +79,7 @@ const ActividadesHoyModal: React.FC<ActividadesHoyModalProps> = ({ open, onClose
     setExpandedProyecto(expandedProyecto === proyectoId ? null : proyectoId);
   };
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_: unknown, newPage: number) => {
     setLoading(true);
     setTimeout(() => {
       setPage(newPage);

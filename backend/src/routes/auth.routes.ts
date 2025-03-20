@@ -17,4 +17,7 @@ router.post('/registro', validarRegistro, authController.registro as RequestHand
 // Ruta protegida que requiere autenticación
 router.get('/me', verificarToken, authController.getUsuarioActual as RequestHandler)
 
+// Ruta para cerrar sesión
+router.post('/logout', authController.logout as RequestHandler)
+
 export default router

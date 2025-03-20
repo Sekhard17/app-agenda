@@ -7,29 +7,38 @@ import { verificarToken } from '../middlewares/auth.middleware'
 import { validarFechaActividad } from '../middlewares/validacion.middleware'
 import { Request, Response, NextFunction } from 'express';
 import { RequestHandler } from 'express';
+import multer from 'multer';
+
+// Configurar multer para manejar la subida de archivos en memoria
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // Limitar a 10MB
+  }
+});
 
 const router = Router()
 
-// Aplicar middleware de autenticación a todas las rutas
-router.use((req: Request, res: Response, next: NextFunction) => {
-  try {
-    verificarToken(req, res, next);
-  } catch (error) {
-    console.error('Error en middleware de autenticación:', error);
-    res.status(401).json({ message: 'Error de autenticación' });
-  }
-});
+// Todas las rutas de actividades requieren autenticación
+router.use(verificarToken);
 
 // Rutas de actividades
 // Importante: La ruta /supervisados debe ir antes que /:id para evitar conflictos
 router.get('/supervisados', actividadesController.getActividadesSupervisados as RequestHandler);
 router.get('/usuario', actividadesController.getActividadesUsuario as RequestHandler);
 router.get('/rango/:fechaInicio/:fechaFin', actividadesController.getActividadesPorRango as RequestHandler);
+
+// Nueva ruta para manejar query parameters
+router.get('/', actividadesController.getActividadesUsuario as RequestHandler);
+
+// Ruta para obtener una actividad específica por ID
 router.get('/:id', actividadesController.getActividad as RequestHandler);
 
 // Rutas POST y PUT
 router.post('/', 
   validarFechaActividad,
+  upload.array('archivos', 5), // Permitir hasta 5 archivos
   actividadesController.crearActividad as RequestHandler
 );
 
@@ -38,6 +47,7 @@ router.put('/:id',
   actividadesController.actualizarActividad as RequestHandler
 );
 
+// Ruta para eliminar una actividad
 router.delete('/:id', actividadesController.eliminarActividad as RequestHandler);
 
 // Esta ruta debe ir después de la ruta POST / para evitar conflictos

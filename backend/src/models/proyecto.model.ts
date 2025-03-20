@@ -4,6 +4,27 @@
 import supabase from '../config/supabase'
 import { Proyecto, ProyectoCrear, ProyectoActualizar } from '../types/proyecto.types'
 
+// Interfaces
+export interface IProyecto {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  id_supervisor: string;
+  activo: boolean;
+  estado: 'planificado' | 'en_progreso' | 'completado' | 'cancelado';
+  fecha_inicio?: Date | null;
+  fecha_fin?: Date | null;
+  fecha_creacion: Date;
+  fecha_actualizacion: Date;
+}
+
+export interface IAsignacionProyecto {
+  id: string;
+  proyecto_id: string;
+  usuario_id: string;
+  fecha_asignacion: Date;
+}
+
 // Obtener un proyecto por ID
 export const obtenerProyectoPorId = async (id: string) => {
   const { data, error } = await supabase
@@ -263,3 +284,27 @@ export const desasignarProyectoDeUsuario = async (usuarioId: string, proyectoId:
   if (error) throw error
   return data
 }
+
+// Obtener asignaciones de un proyecto
+export const obtenerAsignacionesProyecto = async (proyectoId: string): Promise<IAsignacionProyecto[]> => {
+  try {
+    // Modifico para usar asignaciones_tareas que es la tabla que existe según el esquema
+    const { data, error } = await supabase
+      .from('asignaciones_tareas')
+      .select('id, id_proyecto, id_funcionario, fecha_asignacion')
+      .eq('id_proyecto', proyectoId);
+
+    if (error) throw error;
+    
+    // Transformar los datos al formato esperado
+    return (data || []).map(item => ({
+      id: item.id,
+      proyecto_id: item.id_proyecto,
+      usuario_id: item.id_funcionario,
+      fecha_asignacion: item.fecha_asignacion
+    }));
+  } catch (error) {
+    console.error('Error al obtener asignaciones del proyecto:', error);
+    return [];
+  }
+};

@@ -108,13 +108,11 @@ const Dashboard = () => {
             // Verificar si hay actividades de hoy
             const actividadesHoyEstadistica = estadisticasConIconos.find(est => est.titulo === 'Actividades Hoy');
             if (actividadesHoyEstadistica && actividadesHoyEstadistica.valor === 0) {
-              console.log('Contador de actividades hoy es 0, intentando cargar actividades de hoy directamente...');
               // Si el contador es 0, intentamos cargar las actividades directamente
               await cargarActividadesHoy();
               const actividadesCount = actividadesHoy.reduce((total, proyecto) => total + proyecto.actividades.length, 0);
               
               if (actividadesCount > 0) {
-                console.log(`Se encontraron ${actividadesCount} actividades, actualizando estadísticas...`);
                 // Actualizamos el contador en las estadísticas
                 const estadisticasActualizadas = estadisticasConIconos.map(est => 
                   est.titulo === 'Actividades Hoy' 
@@ -135,9 +133,11 @@ const Dashboard = () => {
           }
           
           if (dashboardData.actividadesRecientes) {
-            const nombreCompleto = usuario ? 
-              `${usuario.nombres} ${usuario.appaterno}${usuario.apmaterno ? ` ${usuario.apmaterno}` : ''}` : 
-              'Usuario';
+            const nombreCompleto = usuario 
+              ? (`${usuario.nombres || ''} ${usuario.appaterno || ''}${usuario.apmaterno ? ` ${usuario.apmaterno}` : ''}`.trim() || 
+                 usuario.nombre_usuario || 'Usuario')
+              : 'Usuario';
+            
             // Actualizar el nombre de usuario en las actividades recientes
             const actividadesActualizadas = dashboardData.actividadesRecientes.map(actividad => ({
               ...actividad,
@@ -165,13 +165,11 @@ const Dashboard = () => {
             // Verificar si hay actividades de hoy
             const actividadesHoyEstadistica = estadisticasConIconos.find(est => est.titulo === 'Actividades Hoy');
             if (actividadesHoyEstadistica && actividadesHoyEstadistica.valor === 0) {
-              console.log('Contador de actividades hoy es 0, intentando cargar actividades de hoy directamente...');
               // Si el contador es 0, intentamos cargar las actividades directamente
               await cargarActividadesHoy();
               const actividadesCount = actividadesHoy.reduce((total, proyecto) => total + proyecto.actividades.length, 0);
               
               if (actividadesCount > 0) {
-                console.log(`Se encontraron ${actividadesCount} actividades, actualizando estadísticas...`);
                 // Actualizamos el contador en las estadísticas
                 const estadisticasActualizadas = estadisticasConIconos.map(est => 
                   est.titulo === 'Actividades Hoy' 
@@ -276,25 +274,20 @@ const Dashboard = () => {
   // Función para cargar las actividades de hoy
   const cargarActividadesHoy = async () => {
     try {
-      console.log('Iniciando carga de actividades de hoy...');
       const actividades = await DashboardService.getActividadesHoy();
-      console.log('Actividades de hoy recibidas en el componente:', actividades);
       setActividadesHoy(actividades);
       
       if (actividades.length === 0) {
-        console.log('No se encontraron actividades para hoy');
+        // No hay actividades para hoy
       } else {
-        console.log(`Se encontraron ${actividades.length} proyectos con actividades para hoy`);
         // Contar el total de actividades en todos los proyectos
         const totalActividades = actividades.reduce((total, proyecto) => total + proyecto.actividades.length, 0);
-        console.log(`Total de actividades en todos los proyectos: ${totalActividades}`);
         
         // Actualizar el contador en las estadísticas si es necesario
         if (totalActividades > 0) {
           setEstadisticas(estadisticasActuales => {
             const actividadesHoyEstadistica = estadisticasActuales.find(est => est.titulo === 'Actividades Hoy');
             if (actividadesHoyEstadistica && actividadesHoyEstadistica.valor === 0) {
-              console.log('Actualizando contador de actividades hoy en estadísticas:', totalActividades);
               return estadisticasActuales.map(est => 
                 est.titulo === 'Actividades Hoy' 
                   ? { ...est, valor: totalActividades } 

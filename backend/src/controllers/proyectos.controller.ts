@@ -1,11 +1,12 @@
 // src/controllers/proyectos.controller.ts
 // Este controlador maneja las operaciones para proyectos
 
-import { Request, Response, NextFunction } from 'express'
+import { Request, Response, NextFunction, RequestHandler } from 'express'
 import * as proyectosService from '../services/proyectos.service'
 import * as usuariosService from '../services/usuarios.service'
+import * as documentoModel from '../models/documento.model'
 import { ProyectoCrear, ProyectoActualizar } from '../types/proyecto.types'
-import { RequestHandler } from 'express'
+import * as actividadModel from '../models/actividad.model'
 
 // Obtener un proyecto por ID
 export const getProyecto: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -247,3 +248,51 @@ export const desasignarProyectoDeUsuario: RequestHandler = async (req: Request, 
     res.status(400).json({ message: error.message || 'Error al desasignar proyecto' })
   }
 }
+
+// Obtener actividades de un proyecto específico
+export const getActividadesProyecto: RequestHandler = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const usuarioId = req.usuario?.id;
+    
+    if (!usuarioId) {
+      res.status(401).json({
+        error: 'Usuario no autenticado'
+      });
+      return;
+    }
+    
+    const actividades = await actividadModel.obtenerActividadesPorProyecto(id);
+    
+    res.json({ actividades });
+  } catch (error) {
+    console.error('Error al obtener actividades del proyecto:', error);
+    res.status(500).json({
+      error: 'Error al obtener actividades del proyecto'
+    });
+  }
+};
+
+// Obtener documentos de un proyecto específico
+export const getDocumentosProyecto: RequestHandler = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const usuarioId = req.usuario?.id;
+    
+    if (!usuarioId) {
+      res.status(401).json({
+        error: 'Usuario no autenticado'
+      });
+      return;
+    }
+    
+    const documentos = await documentoModel.obtenerDocumentosPorProyecto(id);
+    
+    res.json({ documentos });
+  } catch (error) {
+    console.error('Error al obtener documentos del proyecto:', error);
+    res.status(500).json({
+      error: 'Error al obtener documentos del proyecto'
+    });
+  }
+};

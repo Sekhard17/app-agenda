@@ -3,6 +3,7 @@
 
 import app from './app'
 import config from './config/config'
+import SincronizacionService from './services/sincronizacion.service'
 
 const PORT = parseInt(config.port, 10) || 3000
 
@@ -11,6 +12,9 @@ app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT} en modo ${config.environment}`)
   console.log(`API disponible en http://localhost:${PORT}/api`)
 })
+
+// Iniciar sincronización programada
+SincronizacionService.iniciarSincronizacionProgramada()
 
 // Manejo de errores no capturados
 process.on('uncaughtException', (error) => {

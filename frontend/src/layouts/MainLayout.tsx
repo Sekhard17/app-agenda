@@ -150,7 +150,7 @@ const MainLayout = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [open, setOpen] = useState(!isMobile);
   const { mode, toggleColorMode } = useContext(ThemeContext);
-  const { usuario } = useAuth(); // Obtener datos del usuario desde el contexto de autenticación
+  const { usuario, logout } = useAuth(); // Obtener datos del usuario y función logout desde el contexto de autenticación
   
   // Función para formatear la fecha actual
   const formatearFecha = () => {
@@ -243,10 +243,14 @@ const MainLayout = () => {
   };
 
   // Manejo de logout
-  const handleLogout = () => {
-    // Aquí iría la lógica de logout
-    handleUserMenuClose();
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await logout(); // Usar la función de logout del contexto
+      handleUserMenuClose();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
   };
 
   // Verificar si una ruta está activa
@@ -261,9 +265,7 @@ const MainLayout = () => {
   };
 
   // Elementos del menú de administración (común para ambos roles)
-  const adminMenuItems: MenuItem[] = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-  ];
+  const adminMenuItems: MenuItem[] = [];
 
   // Elementos del menú para supervisores
   const userMenuItems: MenuItem[] = usuario?.rol === 'supervisor' ? [
@@ -301,9 +303,10 @@ const MainLayout = () => {
     { text: 'Tipos de Actividad', icon: <CategoryIcon />, path: '/tipos-actividad' },
   ] : [
     // Elementos del menú para funcionarios
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'Portal de Proyectos', icon: <FolderSpecialIcon />, path: '/portal-proyectos' },
     { text: 'Mis Actividades', icon: <AssignmentIcon />, path: '/mis-actividades' },
     { text: 'Registrar Actividad', icon: <CalendarIcon />, path: '/registrar-actividad' },
-    { text: 'Mis Proyectos', icon: <FolderSpecialIcon />, path: '/mis-proyectos' },
   ];
 
   return (
@@ -714,7 +717,7 @@ const MainLayout = () => {
         <Divider sx={{ mb: 2, opacity: 0.6 }} />
         
         {/* Sección de Administración */}
-        {open && (
+        {open && adminMenuItems.length > 0 && (
           <Box sx={{ px: 3, mb: 1 }}>
             <Box 
               sx={{ 
@@ -746,51 +749,53 @@ const MainLayout = () => {
           </Box>
         )}
         
-        <Collapse in={open ? openAdminMenu : true} timeout="auto" unmountOnExit={false}>
-          <List component="nav" dense={!open}>
-            {adminMenuItems.map((item) => (
-              <StyledListItem 
-                key={item.text} 
-                disablePadding 
-                sx={{ 
-                  display: 'block',
-                  mb: 0.5,
-                }} 
-                active={isActive(item.path)}
-              >
-                <ListItemButton
-                  component={Link}
-                  to={item.path}
-                  sx={{
-                    minHeight: 48,
-                    justifyContent: open ? 'initial' : 'center',
-                    px: open ? 2 : 2.5,
-                  }}
+        {adminMenuItems.length > 0 && (
+          <Collapse in={open ? openAdminMenu : true} timeout="auto" unmountOnExit={false}>
+            <List component="nav" dense={!open}>
+              {adminMenuItems.map((item) => (
+                <StyledListItem 
+                  key={item.text} 
+                  disablePadding 
+                  sx={{ 
+                    display: 'block',
+                    mb: 0.5,
+                  }} 
+                  active={isActive(item.path)}
                 >
-                  <ListItemIcon
+                  <ListItemButton
+                    component={Link}
+                    to={item.path}
                     sx={{
-                      minWidth: 0,
-                      mr: open ? 3 : 'auto',
-                      justifyContent: 'center',
+                      minHeight: 48,
+                      justifyContent: open ? 'initial' : 'center',
+                      px: open ? 2 : 2.5,
                     }}
                   >
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={item.text} 
-                    primaryTypographyProps={{ 
-                      fontSize: '0.95rem',
-                      fontWeight: isActive(item.path) ? 600 : 400,
-                    }}
-                    sx={{ opacity: open ? 1 : 0 }} 
-                  />
-                </ListItemButton>
-              </StyledListItem>
-            ))}
-          </List>
-        </Collapse>
+                    <ListItemIcon
+                      sx={{
+                        minWidth: 0,
+                        mr: open ? 3 : 'auto',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={item.text} 
+                      primaryTypographyProps={{ 
+                        fontSize: '0.95rem',
+                        fontWeight: isActive(item.path) ? 600 : 400,
+                      }}
+                      sx={{ opacity: open ? 1 : 0 }} 
+                    />
+                  </ListItemButton>
+                </StyledListItem>
+              ))}
+            </List>
+          </Collapse>
+        )}
         
-        <Divider sx={{ my: 2, opacity: 0.6 }} />
+        {adminMenuItems.length === 0 ? null : <Divider sx={{ my: 2, opacity: 0.6 }} />}
         
         {/* Sección de Usuario */}
         {open && (
