@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import UsuariosService, { UsuarioDetalle, UsuarioActualizar } from '../services/usuarios.service';
 import {
@@ -16,8 +16,6 @@ import {
   CardContent,
   useTheme,
   alpha,
-  Tab,
-  Tabs,
   Alert,
   Snackbar,
   Dialog,
@@ -25,7 +23,6 @@ import {
   DialogContent,
   DialogActions,
   InputAdornment,
-  Tooltip,
   Container,
 } from '@mui/material';
 import {
@@ -37,49 +34,10 @@ import {
   VisibilityOff as VisibilityOffIcon,
   Person as PersonIcon,
   Email as EmailIcon,
-  Phone as PhoneIcon,
   Work as WorkIcon,
   Domain as DomainIcon,
   VpnKey as VpnKeyIcon,
-  SupervisorAccount as SupervisorAccountIcon,
-  CalendarToday as CalendarTodayIcon,
 } from '@mui/icons-material';
-
-// Interfaz para las pestañas
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-// Componente TabPanel
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`perfil-tabpanel-${index}`}
-      aria-labelledby={`perfil-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
-
-// Función auxiliar para las pestañas
-function a11yProps(index: number) {
-  return {
-    id: `perfil-tab-${index}`,
-    'aria-controls': `perfil-tabpanel-${index}`,
-  };
-}
 
 // Componente principal de la página de perfil
 const Perfil = () => {
@@ -88,7 +46,6 @@ const Perfil = () => {
   const [usuarioDetalle, setUsuarioDetalle] = useState<UsuarioDetalle | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [editMode, setEditMode] = useState<boolean>(false);
-  const [tabValue, setTabValue] = useState(0);
   const [mensaje, setMensaje] = useState<{ tipo: 'success' | 'error', texto: string } | null>(null);
   const [showPasswordDialog, setShowPasswordDialog] = useState<boolean>(false);
   const [passwordData, setPasswordData] = useState({
@@ -138,11 +95,6 @@ const Perfil = () => {
 
     fetchUsuarioDetalle();
   }, [usuario]);
-
-  // Manejar cambio de pestañas
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
 
   // Manejar cambios en los campos del formulario
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -11,14 +11,8 @@ import {
   useTheme,
   Snackbar,
   Alert,
-  Chip,
-  AvatarGroup,
   ToggleButtonGroup,
   ToggleButton,
-  Divider,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   TextField,
   Table,
   TableBody,
@@ -27,7 +21,6 @@ import {
   TableHead,
   TableRow,
   TablePagination,
-  IconButton
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -35,10 +28,8 @@ import {
   Add as AddIcon,
   Download as DownloadIcon,
   Assignment as AssignmentIcon,
-  Person as PersonIcon,
   ViewModule as ViewModuleIcon,
   ViewList as ViewListIcon,
-  ExpandMore as ExpandMoreIcon,
   Search as SearchIcon,
   FilterList as FilterListIcon
 } from '@mui/icons-material';
@@ -79,7 +70,6 @@ interface DocumentosVisualizadorProps {
   onSubirDocumento?: () => void;
   titulo?: string;
   mensajeVacio?: string;
-  permitirAgrupacion?: boolean;
 }
 
 // Formatear fecha
@@ -95,7 +85,6 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
   onSubirDocumento,
   titulo = "Documentos",
   mensajeVacio = "No hay documentos disponibles.",
-  permitirAgrupacion = true
 }) => {
   const theme = useTheme();
   const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
@@ -125,7 +114,7 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
   }, [documentos, searchQuery, selectedDate]);
 
   // Manejadores de paginación
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -142,7 +131,7 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
   };
 
   // Cambiar tipo de vista
-  const handleViewChange = (event: React.MouseEvent<HTMLElement>, newView: 'table' | 'grid') => {
+  const handleViewChange = (_: React.MouseEvent<HTMLElement>, newView: 'table' | 'grid') => {
     if (newView !== null) {
       setViewType(newView);
     }
@@ -183,35 +172,6 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
     setErrorDescarga('Error al acceder al archivo. Puede que el archivo ya no esté disponible o no tengas acceso.');
     setTimeout(() => setErrorDescarga(null), 4000);
   };
-  
-  // Agrupar documentos por actividad
-  const documentosPorActividad = React.useMemo(() => {
-    if (!documentos || documentos.length === 0) return {};
-    
-    return documentos.reduce((grupos, doc) => {
-      if (!doc.actividades) {
-        if (!grupos['sin_actividad']) {
-          grupos['sin_actividad'] = {
-            titulo: 'Sin actividad asociada',
-            documentos: []
-          };
-        }
-        grupos['sin_actividad'].documentos.push(doc);
-      } else {
-        const actividadId = doc.actividades.id;
-        if (!grupos[actividadId]) {
-          grupos[actividadId] = {
-            titulo: doc.actividades.descripcion,
-            fecha: doc.actividades.fecha,
-            usuario: doc.actividades.usuarios,
-            documentos: []
-          };
-        }
-        grupos[actividadId].documentos.push(doc);
-      }
-      return grupos;
-    }, {} as Record<string, { titulo: string, fecha?: string | Date, usuario?: any, documentos: Documento[] }>);
-  }, [documentos]);
   
   // Renderizar vista de tabla
   const renderizarTabla = () => (
@@ -338,7 +298,7 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
       </Table>
     </TableContainer>
   );
-
+  
   // Renderizar documentos en vista normal
   const renderizarVistaNomal = () => (
     <Grid container spacing={2}>
@@ -489,172 +449,6 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
         </Grid>
       ))}
     </Grid>
-  );
-  
-  // Renderizar documentos agrupados por actividad
-  const renderizarVistaAgrupada = () => (
-    <Box>
-      {Object.entries(documentosPorActividad).map(([actividadId, grupo]) => (
-        <Accordion 
-          key={actividadId}
-          defaultExpanded
-          sx={{ 
-            mb: 2,
-            borderRadius: '12px',
-            overflow: 'hidden',
-            '&:before': { display: 'none' },
-            boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.08)}`
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            sx={{ 
-              backgroundColor: alpha(theme.palette.primary.main, 0.04),
-              '&.Mui-expanded': {
-                borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`
-              }
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Avatar
-                sx={{ 
-                  bgcolor: alpha(theme.palette.primary.main, 0.2),
-                  color: theme.palette.primary.main
-                }}
-              >
-                <AssignmentIcon />
-              </Avatar>
-              <Box>
-                <Typography variant="subtitle1" fontWeight={500}>
-                  {grupo.titulo || 'Sin descripción'}
-                </Typography>
-                {grupo.fecha && (
-                  <Typography variant="caption" color="text.secondary">
-                    {formatearFecha(grupo.fecha)} • {grupo.documentos.length} documento{grupo.documentos.length !== 1 ? 's' : ''}
-                  </Typography>
-                )}
-              </Box>
-              {grupo.usuario && (
-                <Chip
-                  size="small"
-                  avatar={
-                    <Avatar 
-                      sx={{ 
-                        width: 24, 
-                        height: 24,
-                        bgcolor: theme.palette.primary.main
-                      }}
-                    >
-                      {grupo.usuario.nombres?.charAt(0)}
-                    </Avatar>
-                  }
-                  label={`${grupo.usuario.nombres} ${grupo.usuario.appaterno}`}
-                  sx={{ 
-                    ml: 'auto', 
-                    mr: 2,
-                    bgcolor: alpha(theme.palette.background.paper, 0.9)
-                  }}
-                />
-              )}
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails sx={{ p: 2 }}>
-            <Grid container spacing={2}>
-              {grupo.documentos.map((doc) => (
-                <Grid item xs={12} sm={6} md={4} key={doc.id}>
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      p: 2,
-                      borderRadius: '16px',
-                      border: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
-                      transition: 'all 0.2s ease',
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      '&:hover': {
-                        boxShadow: `0 6px 16px ${alpha(theme.palette.primary.main, 0.08)}`,
-                        transform: 'translateY(-3px)',
-                        borderColor: alpha(theme.palette.primary.main, 0.2)
-                      }
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                      <Avatar
-                        sx={{ 
-                          bgcolor: alpha(theme.palette.primary.main, 0.1),
-                          color: theme.palette.primary.main,
-                          width: 42,
-                          height: 42
-                        }}
-                      >
-                        {getIconoPorTipo(doc.tipo_archivo)}
-                      </Avatar>
-                      <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                        <Tooltip title={doc.nombre_archivo} arrow placement="top">
-                          <Typography 
-                            variant="subtitle1" 
-                            sx={{ 
-                              fontWeight: 600,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {doc.nombre_archivo}
-                          </Typography>
-                        </Tooltip>
-                        <Typography variant="caption" color="text.secondary">
-                          {formatearTamano(doc.tamaño_bytes || 0)} • {doc.tipo_archivo?.split('/')[1]?.toUpperCase() || 'Documento'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    
-                    <Box sx={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center',
-                      mt: 'auto', 
-                      pt: 2,
-                      borderTop: `1px dashed ${alpha(theme.palette.divider, 0.15)}`
-                    }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {formatearFecha(doc.fecha_creacion)}
-                      </Typography>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<DownloadIcon />}
-                        component="a"
-                        href={doc.ruta_archivo}
-                        target="_blank"
-                        onClick={(e) => {
-                          if (!doc.ruta_archivo || (!doc.ruta_archivo.startsWith('http://') && !doc.ruta_archivo.startsWith('https://'))) {
-                            e.preventDefault();
-                            manejarErrorDescarga();
-                          }
-                        }}
-                        sx={{ 
-                          borderRadius: '8px',
-                          textTransform: 'none',
-                          borderColor: alpha(theme.palette.primary.main, 0.3),
-                          '&:hover': {
-                            borderColor: theme.palette.primary.main,
-                            backgroundColor: alpha(theme.palette.primary.main, 0.05)
-                          }
-                        }}
-                      >
-                        Descargar
-                      </Button>
-                    </Box>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </AccordionDetails>
-        </Accordion>
-      ))}
-    </Box>
   );
   
   return (

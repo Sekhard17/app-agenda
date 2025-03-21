@@ -9,14 +9,12 @@ const ParticlesBackground = () => {
   const { mode } = useContext(ThemeContext);
   
   const particlesInit = useCallback(async (engine: any) => {
-    console.log('Initializing particles...');
     await loadSlim(engine);
   }, []);
   
   // Efecto para registrar cuando el componente se monta
   useEffect(() => {
-    console.log('ParticlesBackground mounted');
-    return () => console.log('ParticlesBackground unmounted');
+    return () => {};
   }, []);
 
   return (
