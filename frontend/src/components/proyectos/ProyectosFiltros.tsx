@@ -8,7 +8,6 @@ import {
   Paper,
   Typography,
   Button,
-  Divider,
   Menu,
   MenuItem,
   Tooltip,
@@ -18,7 +17,6 @@ import {
 import { alpha } from '@mui/material/styles';
 import {
   Search as SearchIcon,
-  FilterList as FilterListIcon,
   ClearAll as ClearAllIcon,
   SortByAlpha as SortByAlphaIcon,
   ArrowUpward as ArrowUpwardIcon,
