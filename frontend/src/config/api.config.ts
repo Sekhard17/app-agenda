@@ -45,6 +45,10 @@ export const API_CONFIG = {
       BASE: '/informes',
       SUPERVISADO_EXCEL: (id: string) => `/informes/supervisado/${id}/excel`,
     },
+    COMENTARIOS: {
+      BASE: '/comentarios',
+      BY_ID: (id: string) => `/comentarios/${id}`,
+    },
   },
   TIMEOUT: 30000, // 30 segundos
 };

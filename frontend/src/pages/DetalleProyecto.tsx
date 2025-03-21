@@ -20,14 +20,14 @@ import {
   Alert,
   Slide,
   CircularProgress,
-  IconButton
+  Select,
+  MenuItem
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
   ArrowBack as ArrowBackIcon,
   CalendarToday as CalendarTodayIcon,
   Assignment as AssignmentIcon,
-  Add as AddIcon,
   Description as DescriptionIcon,
   Inventory as InventoryIcon,
   Comment as CommentIcon,
@@ -42,7 +42,7 @@ import {
   Info as InfoIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
-  Download as DownloadIcon
+  Chat as ChatIcon
 } from '@mui/icons-material';
 import ProyectosService, { Proyecto } from '../services/proyectos.service';
 import { motion } from 'framer-motion';
@@ -52,6 +52,9 @@ import { es } from 'date-fns/locale';
 import ActividadesLista from '../components/actividades/ActividadesLista';
 import { TransitionProps } from '@mui/material/transitions';
 import DocumentosVisualizador from '../components/documentos/DocumentosVisualizador';
+import ComentariosActividad from '../components/comentarios/ComentariosActividad';
+import { useAuth } from '../context/AuthContext';
+import ErrorBoundary from '../components/common/ErrorBoundary';
 
 // Función para formatear fecha
 const formatearFecha = (fecha: string | Date | null | undefined): string => {
@@ -186,15 +189,194 @@ const RecursosTab: React.FC<TabContentProps> = () => {
   );
 };
 
-const ComentariosTab: React.FC<TabContentProps> = () => {
+const ComentariosTab: React.FC<TabContentProps> = ({ proyecto }) => {
+  const [actividadSeleccionada, setActividadSeleccionada] = useState<string | null>(null);
+  const [actividades, setActividades] = useState<any[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { usuario } = useAuth();
+  const theme = useTheme();
+
+  useEffect(() => {
+    const cargarActividades = async () => {
+      try {
+        setCargando(true);
+        const actividadesData = await ProyectosService.getActividadesProyecto(proyecto.id);
+        
+        // Mejorar la detección de actividades permitidas
+        const actividadesUsuario = actividadesData.filter(actividad => {
+          // Si el usuario es supervisor, puede ver todas las actividades
+          if (usuario?.rol === 'supervisor') return true;
+          
+          // Para usuarios normales, comprobar todas las posibles relaciones
+          // 1. Es el creador de la actividad
+          const esCreador = actividad.creador_id === usuario?.id;
+          
+          // 2. Es el usuario principal de la actividad
+          const esUsuarioPrincipal = actividad.id_usuario === usuario?.id;
+          
+          // 3. Está en la lista de usuarios asignados
+          let estaAsignado = false;
+          if (actividad.usuarios_asignados) {
+            if (Array.isArray(actividad.usuarios_asignados)) {
+              estaAsignado = actividad.usuarios_asignados.some((u: any) => u.id === usuario?.id);
+            } else if (typeof actividad.usuarios_asignados === 'object') {
+              // Si es un solo objeto y no un array
+              estaAsignado = actividad.usuarios_asignados.id === usuario?.id;
+            }
+          }
+          
+          console.log(`Actividad ${actividad.id}: creador=${esCreador}, principal=${esUsuarioPrincipal}, asignado=${estaAsignado}`);
+          
+          return esCreador || esUsuarioPrincipal || estaAsignado;
+        });
+        
+        console.log(`Proyecto ${proyecto.id}: ${actividadesData.length} actividades totales, ${actividadesUsuario.length} filtradas para el usuario ${usuario?.id}`);
+        
+        setActividades(actividadesUsuario);
+        if (actividadesUsuario.length > 0) {
+          setActividadSeleccionada(actividadesUsuario[0].id);
+        }
+      } catch (error) {
+        console.error('Error al cargar actividades:', error);
+        setError('No se pudieron cargar las actividades asignadas a tu usuario');
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    cargarActividades();
+  }, [proyecto.id, usuario]);
+
+  const handleComentarioError = (mensaje: string) => {
+    // Mostrar mensaje de error
+    setError(mensaje);
+    
+    // Si es un error de permisos, desactivar la actividad seleccionada
+    if (mensaje.includes('No tiene permisos')) {
+      console.log(`Error de permisos detectado para la actividad ${actividadSeleccionada}: ${mensaje}`);
+      
+      // Eliminar la actividad sin permisos de la lista
+      if (actividadSeleccionada) {
+        const actividadesActualizadas = actividades.filter(act => act.id !== actividadSeleccionada);
+        setActividades(actividadesActualizadas);
+        
+        // Seleccionar la primera actividad disponible o ninguna si no hay
+        if (actividadesActualizadas.length > 0) {
+          setActividadSeleccionada(actividadesActualizadas[0].id);
+        } else {
+          setActividadSeleccionada(null);
+        }
+      }
+    }
+  };
+
+  if (cargando) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (actividades.length === 0) {
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          borderRadius: '16px',
+          bgcolor: alpha(theme.palette.info.main, 0.05),
+          border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`,
+          textAlign: 'center'
+        }}
+      >
+        <ChatIcon sx={{ fontSize: '2.5rem', color: alpha(theme.palette.info.main, 0.3), mb: 1 }} />
+        <Typography variant="h6" color="textSecondary" gutterBottom>
+          No hay actividades disponibles
+        </Typography>
+        <Typography color="textSecondary" variant="body2">
+          No tienes actividades asignadas en este proyecto o no tienes permisos para ver sus comentarios.
+        </Typography>
+      </Paper>
+    );
+  }
+
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        Comentarios
-      </Typography>
-      <Typography color="text.secondary">
-        Espacio para comentarios del proyecto en desarrollo.
-      </Typography>
+      {error && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            mb: 3,
+            borderRadius: '12px',
+            bgcolor: alpha(theme.palette.error.main, 0.08),
+            border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`
+          }}
+        >
+          <Typography color="error" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ErrorIcon fontSize="small" />
+            {error}
+          </Typography>
+        </Paper>
+      )}
+      
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" gutterBottom>
+          Seleccionar Actividad:
+        </Typography>
+        <Select
+          fullWidth
+          value={actividadSeleccionada || ''}
+          onChange={(e) => {
+            setActividadSeleccionada(e.target.value);
+            setError(null); // Limpiar error al cambiar de actividad
+          }}
+          size="small"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '12px',
+            }
+          }}
+        >
+          {actividades.map((actividad) => (
+            <MenuItem key={actividad.id} value={actividad.id}>
+              {actividad.titulo || actividad.descripcion}
+              {actividad.creador_id === usuario?.id && (
+                <Chip 
+                  label="Creada por ti" 
+                  size="small" 
+                  sx={{ 
+                    ml: 1,
+                    height: 20,
+                    fontSize: '0.7rem', 
+                    bgcolor: alpha(theme.palette.success.main, 0.1),
+                    color: theme.palette.success.main
+                  }}
+                />
+              )}
+            </MenuItem>
+          ))}
+        </Select>
+      </Box>
+
+      {actividadSeleccionada && (
+        <ErrorBoundary 
+          fallback={
+            <Box p={2}>
+              <Typography color="error">
+                No tienes permisos para ver los comentarios de esta actividad.
+              </Typography>
+            </Box>
+          }
+        >
+          <ComentariosActividad 
+            idActividad={actividadSeleccionada}
+            onError={handleComentarioError}
+          />
+        </ErrorBoundary>
+      )}
     </Box>
   );
 };
@@ -386,7 +568,7 @@ const ResumenTab: React.FC<{
               mb: 3
             }}
           >
-            <Tooltip title="Total de actividades completadas vs. pendientes" arrow>
+            <Tooltip title="Total de actividades enviadas" arrow>
               <Box
                 sx={{
                   p: 1.5,
@@ -400,10 +582,10 @@ const ResumenTab: React.FC<{
               >
                 <CheckCircleIcon sx={{ color: theme.palette.primary.main, mb: 0.5, fontSize: '1.2rem' }} />
                 <Typography variant="h5" fontWeight="bold" color="primary">
-                  {proyecto.actividades_completadas || 0}/{proyecto.total_actividades || 0}
+                  {proyecto.actividades_completadas || 0}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Actividades Completadas
+                  Actividades Enviadas
                 </Typography>
               </Box>
             </Tooltip>
@@ -578,7 +760,7 @@ const ResumenTab: React.FC<{
 
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
-                <Tooltip title="Actividades pendientes por completar" arrow>
+                <Tooltip title="Actividades en estado borrador" arrow>
                   <Box
                     sx={{
                       p: 1.5,
@@ -590,26 +772,12 @@ const ResumenTab: React.FC<{
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                       <AssignmentIcon sx={{ color: theme.palette.text.secondary, fontSize: '1rem' }} />
                       <Typography variant="caption" color="text.secondary">
-                        Actividades Pendientes
+                        Actividades Borrador
                       </Typography>
                     </Box>
                     <Typography variant="h6" fontWeight="medium">
                       {(proyecto.total_actividades || 0) - (proyecto.actividades_completadas || 0)}
                     </Typography>
-                    <LinearProgress
-                      variant="determinate"
-                      value={((proyecto.actividades_completadas || 0) / (proyecto.total_actividades || 1)) * 100}
-                      sx={{
-                        mt: 1,
-                        height: 3,
-                        borderRadius: 1.5,
-                        bgcolor: alpha(theme.palette.primary.main, 0.1),
-                        '& .MuiLinearProgress-bar': {
-                          borderRadius: 1.5,
-                          bgcolor: theme.palette.primary.main
-                        }
-                      }}
-                    />
                   </Box>
                 </Tooltip>
               </Grid>
@@ -821,7 +989,6 @@ const DetalleProyecto: React.FC = () => {
   const [modalActividadAbierto, setModalActividadAbierto] = useState<boolean>(false);
   const [refreshActividades, setRefreshActividades] = useState<boolean>(false);
   const [activeActividadId, setActiveActividadId] = useState<string | null>(null);
-  const [modalDetalleActividadAbierto, setModalDetalleActividadAbierto] = useState<boolean>(false);
   
   // Estado para las notificaciones toast
   const [snackbar, setSnackbar] = useState<{
@@ -899,6 +1066,9 @@ const DetalleProyecto: React.FC = () => {
           // Obtener actividades del proyecto
           const actividades = await ProyectosService.getActividadesProyecto(id);
           
+          // Filtrar actividades con estado "enviado" para contar como completadas
+          const actividadesEnviadas = actividades?.filter(act => act.estado === 'enviado') || [];
+          
           // Obtener documentos del proyecto
           const documentos = await ProyectosService.getDocumentosProyecto(id);
           
@@ -919,8 +1089,8 @@ const DetalleProyecto: React.FC = () => {
           const proyectoEnriquecido = {
             ...proyectoData,
             progreso: estadisticas?.progreso || Math.min(100, Math.max(0, progreso)),
-            total_actividades: estadisticas?.total_actividades || actividades?.length || 0,
-            actividades_completadas: estadisticas?.actividades_completadas || 0,
+            total_actividades: actividades?.length || 0,
+            actividades_completadas: actividadesEnviadas.length || 0,
             horas_registradas: estadisticas?.horas_registradas || 0,
             usuarios_asignados: estadisticas?.usuarios_asignados || [],
             documentos: documentos || [],
@@ -958,12 +1128,16 @@ const DetalleProyecto: React.FC = () => {
         // Obtener estadísticas del proyecto
         const estadisticas = await ProyectosService.getEstadisticasProyecto(id);
         
+        // Obtener actividades para contar las completadas
+        const actividades = await ProyectosService.getActividadesProyecto(id);
+        const actividadesEnviadas = actividades?.filter(act => act.estado === 'enviado') || [];
+        
         // Crear un objeto enriquecido con datos actualizados
         const proyectoActualizado = {
           ...proyectoData,
           progreso: estadisticas?.progreso || proyecto?.progreso || 0,
-          total_actividades: estadisticas?.total_actividades || 0,
-          actividades_completadas: estadisticas?.actividades_completadas || 0,
+          total_actividades: actividades?.length || 0,
+          actividades_completadas: actividadesEnviadas.length || 0,
           horas_registradas: estadisticas?.horas_registradas || 0,
           usuarios_asignados: estadisticas?.usuarios_asignados || proyecto?.usuarios_asignados || [],
           documentos: proyecto?.documentos || [],
@@ -982,28 +1156,11 @@ const DetalleProyecto: React.FC = () => {
   const handleCambiarSeccion = (seccion: string) => {
     setSeccionActual(seccion);
     
-    // Mostrar notificación personalizada según la sección
-    switch(seccion) {
-      case 'resumen':
-        mostrarSnackbar('Visualizando resumen del proyecto', 'info');
-        break;
-      case 'actividades':
-        // Refrescar actividades al cambiar a esta sección
-        setRefreshActividades(true);
-        setTimeout(() => setRefreshActividades(false), 300);
-        mostrarSnackbar('Visualizando actividades del proyecto', 'info');
-        break;
-      case 'documentos':
-        mostrarSnackbar('Visualizando documentos del proyecto', 'info');
-        break;
-      case 'recursos':
-        mostrarSnackbar('Visualizando recursos del proyecto', 'info');
-        break;
-      case 'comentarios':
-        mostrarSnackbar('Visualizando comentarios del proyecto', 'info');
-        break;
-      default:
-        break;
+    // Solo refrescar actividades si es necesario, sin mostrar notificaciones
+    if (seccion === 'actividades') {
+      // Refrescar actividades al cambiar a esta sección
+      setRefreshActividades(true);
+      setTimeout(() => setRefreshActividades(false), 300);
     }
   };
   

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -18,7 +18,16 @@ import {
   Divider,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  IconButton
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -29,10 +38,15 @@ import {
   Person as PersonIcon,
   ViewModule as ViewModuleIcon,
   ViewList as ViewListIcon,
-  ExpandMore as ExpandMoreIcon
+  ExpandMore as ExpandMoreIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 // Tipos
 interface Actividad {
@@ -85,8 +99,55 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
 }) => {
   const theme = useTheme();
   const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
-  const [vistaActual, setVistaActual] = useState<'normal' | 'agrupada'>('normal');
+  const [viewType, setViewType] = useState<'table' | 'grid'>(() => {
+    const savedView = localStorage.getItem('documentos-view-type');
+    return (savedView as 'table' | 'grid') || 'table';
+  });
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   
+  // Persistir tipo de vista en localStorage
+  useEffect(() => {
+    localStorage.setItem('documentos-view-type', viewType);
+  }, [viewType]);
+
+  // Filtrar documentos
+  const documentosFiltrados = React.useMemo(() => {
+    return documentos.filter(doc => {
+      const matchesSearch = doc.nombre_archivo.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesDate = selectedDate
+        ? format(new Date(doc.fecha_creacion), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
+        : true;
+      return matchesSearch && matchesDate;
+    });
+  }, [documentos, searchQuery, selectedDate]);
+
+  // Manejadores de paginación
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Limpiar filtros
+  const handleLimpiarFiltros = () => {
+    setSearchQuery('');
+    setSelectedDate(null);
+    setPage(0);
+  };
+
+  // Cambiar tipo de vista
+  const handleViewChange = (event: React.MouseEvent<HTMLElement>, newView: 'table' | 'grid') => {
+    if (newView !== null) {
+      setViewType(newView);
+    }
+  };
+
   // Función para determinar el icono según el tipo de archivo
   const getIconoPorTipo = (tipo: string | undefined) => {
     if (!tipo) return <DescriptionIcon />;
@@ -152,16 +213,132 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
     }, {} as Record<string, { titulo: string, fecha?: string | Date, usuario?: any, documentos: Documento[] }>);
   }, [documentos]);
   
-  // Cambiar el tipo de vista
-  const handleCambioVista = (
-    event: React.MouseEvent<HTMLElement>,
-    nuevaVista: 'normal' | 'agrupada',
-  ) => {
-    if (nuevaVista !== null) {
-      setVistaActual(nuevaVista);
-    }
-  };
-  
+  // Renderizar vista de tabla
+  const renderizarTabla = () => (
+    <TableContainer 
+      component={Paper}
+      sx={{ 
+        borderRadius: 3,
+        overflow: 'hidden',
+        backgroundColor: alpha(theme.palette.background.paper, 0.6),
+        backdropFilter: 'blur(20px)',
+        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+        boxShadow: `0 0 40px ${alpha(theme.palette.primary.main, 0.08)}`,
+      }}
+    >
+      <Table>
+        <TableHead>
+          <TableRow
+            sx={{
+              background: `linear-gradient(90deg, 
+                ${alpha(theme.palette.primary.main, 0.08)} 0%, 
+                ${alpha(theme.palette.primary.main, 0.02)} 100%)`,
+              '& th': {
+                fontWeight: 600,
+                color: theme.palette.text.primary,
+                whiteSpace: 'nowrap',
+                fontSize: '0.875rem',
+                letterSpacing: '0.02em',
+                textTransform: 'uppercase',
+                py: 2,
+              },
+            }}
+          >
+            <TableCell>Nombre del archivo</TableCell>
+            <TableCell>Tipo</TableCell>
+            <TableCell>Tamaño</TableCell>
+            <TableCell>Fecha</TableCell>
+            <TableCell align="center">Acciones</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {documentosFiltrados
+            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+            .map((doc) => (
+            <TableRow
+              key={doc.id}
+              sx={{
+                transition: 'all 0.3s ease',
+                position: 'relative',
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.03),
+                  transform: 'scale(1.002)',
+                  boxShadow: `0 4px 24px ${alpha(theme.palette.common.black, 0.04)}`,
+                },
+                '&:not(:last-child)': {
+                  borderBottom: `1px solid ${alpha(theme.palette.divider, 0.08)}`
+                }
+              }}
+            >
+              <TableCell>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Avatar
+                    sx={{ 
+                      bgcolor: alpha(theme.palette.primary.main, 0.1),
+                      color: theme.palette.primary.main,
+                      width: 40,
+                      height: 40
+                    }}
+                  >
+                    {getIconoPorTipo(doc.tipo_archivo)}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {doc.nombre_archivo}
+                    </Typography>
+                    {doc.actividades && (
+                      <Typography variant="caption" color="text.secondary">
+                        {doc.actividades.descripcion}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2">
+                  {doc.tipo_archivo?.split('/')[1]?.toUpperCase() || 'Documento'}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2">
+                  {formatearTamano(doc.tamaño_bytes || 0)}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2">
+                  {formatearFecha(doc.fecha_creacion)}
+                </Typography>
+              </TableCell>
+              <TableCell align="center">
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<DownloadIcon />}
+                  component="a"
+                  href={doc.ruta_archivo}
+                  target="_blank"
+                  onClick={(e) => {
+                    if (!doc.ruta_archivo || (!doc.ruta_archivo.startsWith('http://') && !doc.ruta_archivo.startsWith('https://'))) {
+                      e.preventDefault();
+                      manejarErrorDescarga();
+                    }
+                  }}
+                  sx={{ 
+                    borderRadius: '8px',
+                    textTransform: 'none',
+                    minWidth: '120px'
+                  }}
+                >
+                  Descargar
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+
   // Renderizar documentos en vista normal
   const renderizarVistaNomal = () => (
     <Grid container spacing={2}>
@@ -483,37 +660,34 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
   return (
     <Box>
       {mostrarEncabezado && (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          mb: 3,
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-          pb: 2
-        }}>
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 1.5,
-              fontWeight: 600
-            }}
-          >
-            <DescriptionIcon color="primary" />
-            {titulo}
-          </Typography>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {permitirAgrupacion && documentos.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            mb: 3
+          }}>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1.5,
+                fontWeight: 600
+              }}
+            >
+              <DescriptionIcon color="primary" />
+              {titulo}
+            </Typography>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <ToggleButtonGroup
-                value={vistaActual}
+                value={viewType}
                 exclusive
-                onChange={handleCambioVista}
+                onChange={handleViewChange}
                 size="small"
                 aria-label="tipo de vista"
                 sx={{ 
-                  mr: 1,
                   '& .MuiToggleButton-root': {
                     borderColor: alpha(theme.palette.primary.main, 0.2),
                     '&.Mui-selected': {
@@ -525,32 +699,102 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
                   }
                 }}
               >
-                <ToggleButton value="normal" aria-label="vista normal">
-                  <Tooltip title="Vista normal">
-                    <ViewModuleIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="agrupada" aria-label="vista por actividad">
-                  <Tooltip title="Agrupar por actividad">
+                <ToggleButton value="table" aria-label="vista tabla">
+                  <Tooltip title="Vista de tabla">
                     <ViewListIcon fontSize="small" />
                   </Tooltip>
                 </ToggleButton>
+                <ToggleButton value="grid" aria-label="vista cuadrícula">
+                  <Tooltip title="Vista de cuadrícula">
+                    <ViewModuleIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
               </ToggleButtonGroup>
-            )}
-            
-            {onSubirDocumento && (
+              
+              {onSubirDocumento && (
+                <Button 
+                  variant="contained" 
+                  size="small" 
+                  startIcon={<AddIcon />}
+                  onClick={onSubirDocumento}
+                  sx={{ 
+                    textTransform: 'none',
+                    borderRadius: '10px',
+                    boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.15)}`
+                  }}
+                >
+                  Subir Documento
+                </Button>
+              )}
+            </Box>
+          </Box>
+
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2, 
+            mb: 3,
+            flexWrap: 'wrap',
+            alignItems: 'center'
+          }}>
+            <TextField
+              label="Buscar"
+              type="text"
+              size="small"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por nombre..."
+              InputProps={{
+                startAdornment: (
+                  <SearchIcon 
+                    fontSize="small" 
+                    sx={{ color: theme.palette.text.secondary, mr: 1 }}
+                  />
+                ),
+              }}
+              sx={{ 
+                minWidth: 250,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '8px',
+                  '&:hover': {
+                    '& > fieldset': {
+                      borderColor: theme.palette.primary.main,
+                    }
+                  },
+                }
+              }}
+            />
+
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
+              <DatePicker
+                label="Filtrar por fecha"
+                value={selectedDate}
+                onChange={(newValue) => setSelectedDate(newValue)}
+                slotProps={{
+                  textField: {
+                    size: 'small',
+                    sx: { 
+                      minWidth: 200,
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '8px',
+                      }
+                    }
+                  }
+                }}
+              />
+            </LocalizationProvider>
+
+            {(searchQuery || selectedDate) && (
               <Button 
-                variant="contained" 
                 size="small" 
-                startIcon={<AddIcon />}
-                onClick={onSubirDocumento}
+                variant="outlined" 
+                onClick={handleLimpiarFiltros}
+                startIcon={<FilterListIcon />}
                 sx={{ 
-                  textTransform: 'none',
-                  borderRadius: '10px',
-                  boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.15)}`
+                  borderRadius: '8px',
+                  textTransform: 'none'
                 }}
               >
-                Subir Documento
+                Limpiar filtros
               </Button>
             )}
           </Box>
@@ -571,8 +815,25 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
             Cargando documentos...
           </Typography>
         </Box>
-      ) : documentos.length > 0 ? (
-        vistaActual === 'normal' ? renderizarVistaNomal() : renderizarVistaAgrupada()
+      ) : documentosFiltrados.length > 0 ? (
+        <>
+          {viewType === 'table' ? renderizarTabla() : renderizarVistaNomal()}
+          <TablePagination
+            component="div"
+            count={documentosFiltrados.length}
+            page={page}
+            onPageChange={handleChangePage}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            rowsPerPageOptions={[5, 10, 25]}
+            labelRowsPerPage="Filas por página:"
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+            sx={{
+              mt: 2,
+              borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            }}
+          />
+        </>
       ) : (
         <Paper
           elevation={0}
@@ -600,14 +861,33 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
               mb: 2
             }}
           >
-            <DescriptionIcon sx={{ fontSize: 40, color: theme.palette.primary.main }} />
+            {searchQuery || selectedDate ? 
+              <FilterListIcon sx={{ fontSize: 40, color: theme.palette.warning.main }} /> :
+              <DescriptionIcon sx={{ fontSize: 40, color: theme.palette.primary.main }} />
+            }
           </Box>
           <Typography variant="h6" color="text.primary" sx={{ mb: 1 }}>
-            No hay documentos
+            {searchQuery || selectedDate ? 
+              'No se encontraron documentos' :
+              'No hay documentos'
+            }
           </Typography>
           <Typography color="text.secondary" sx={{ mb: 3, textAlign: 'center', maxWidth: 400 }}>
-            {mensajeVacio}
+            {searchQuery || selectedDate ? 
+              `No hay documentos que coincidan con los criterios de búsqueda${searchQuery ? `: "${searchQuery}"` : ''}${selectedDate ? ` en la fecha ${formatearFecha(selectedDate)}` : ''}` :
+              mensajeVacio
+            }
           </Typography>
+          {(searchQuery || selectedDate) && (
+            <Button
+              variant="outlined"
+              startIcon={<FilterListIcon />}
+              onClick={handleLimpiarFiltros}
+              sx={{ mb: 2, textTransform: 'none', borderRadius: '10px' }}
+            >
+              Limpiar filtros
+            </Button>
+          )}
           {onSubirDocumento && (
             <Button 
               variant="contained" 
@@ -621,7 +901,6 @@ const DocumentosVisualizador: React.FC<DocumentosVisualizadorProps> = ({
         </Paper>
       )}
       
-      {/* Snackbar para mostrar errores */}
       <Snackbar
         open={!!errorDescarga}
         autoHideDuration={4000}

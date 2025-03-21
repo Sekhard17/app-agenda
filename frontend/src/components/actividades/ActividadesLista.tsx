@@ -232,13 +232,11 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
       setActividades(actividades);
       aplicarFiltros(actividades, filtroEstado, filtroFecha, filtroDescripcion);
       
-      // Notificar cuando se cargan las actividades tras un refresh solicitado
-      if (shouldRefresh) {
-        mostrarSnackbar('Actividades actualizadas correctamente', 'success');
-      }
+      // Se eliminó la notificación que aparecía tras actualizar actividades
     } catch (error) {
       console.error('Error al cargar actividades:', error);
       setError("Error al cargar las actividades. Intenta de nuevo.");
+      // Mantener esta notificación es importante para que el usuario sepa qué pasó si hay un error
       mostrarSnackbar('Error al cargar las actividades', 'error');
     } finally {
       setCargando(false);
@@ -312,10 +310,10 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
     }
   }, [shouldRefresh]);
   
-  // Mostrar mensaje de bienvenida la primera vez que se cargan actividades
+  // Efecto para cargar actividades
   useEffect(() => {
     if (!cargando && actividades.length > 0) {
-      mostrarSnackbar(`${actividades.length} actividades cargadas correctamente`, 'success');
+      // Se eliminó la llamada a mostrarSnackbar aquí
     }
   }, [cargando]);
   
@@ -356,7 +354,7 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
   const handleViewModeChange = (newMode: 'table' | 'cards') => {
     setViewType(newMode);
     localStorage.setItem('actividadesViewType', newMode);
-    mostrarSnackbar(`Vista cambiada a ${newMode === 'table' ? 'tabla' : 'tarjetas'}`, 'info');
+    // Se eliminó la llamada a mostrarSnackbar aquí
   };
   
   // Manejar cambio de página
@@ -432,12 +430,12 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
     }
   };
 
-  // Función para limpiar filtros con notificación
+  // Función para limpiar filtros sin notificación
   const handleLimpiarFiltros = () => {
     setFiltroEstado('todos');
     setFiltroFecha('');
     setFiltroDescripcion('');
-    mostrarSnackbar('Filtros eliminados', 'success');
+    // Se eliminó la notificación que aparecía al limpiar filtros
   };
 
   return (
