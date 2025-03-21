@@ -15,7 +15,6 @@ import {
   IconButton,
   Paper,
   Grid,
-  CircularProgress,
   Snackbar,
   Alert
 } from '@mui/material';
@@ -33,7 +32,6 @@ import {
   Cancel as CancelIcon,
   FactCheck as FactCheckIcon,
   AttachFile as AttachFileIcon,
-  Download as DownloadIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -69,12 +67,6 @@ const ActividadVisualizador: React.FC<ActividadVisualizadorProps> = ({
 }) => {
   const theme = useTheme();
   const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
-
-  // Manejador para cuando ocurre un error al descargar
-  const manejarErrorDescarga = () => {
-    setErrorDescarga('Error al acceder al archivo. El archivo podría no estar disponible.');
-    setTimeout(() => setErrorDescarga(null), 4000);
-  };
 
   // Formatear fecha en formato corto
   const formatearFecha = (fecha: string | Date) => {

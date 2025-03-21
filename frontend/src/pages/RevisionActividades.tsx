@@ -47,7 +47,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ActividadesService from '../services/actividades.service';
 import { Actividad } from '../services/actividades.service';
-import ActividadDetalleModal from '../components/ActividadDetalleModal';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import { API_CONFIG } from '../config/api.config';
@@ -73,14 +73,13 @@ interface FiltroActividades {
 const RevisionActividades = () => {
   const theme = useTheme();
   const { usuario } = useAuth();
+  const navigate = useNavigate();
   
   // Detección de dispositivo móvil
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Estados
   const [actividades, setActividades] = useState<Actividad[]>([]);
-  const [actividadSeleccionada, setActividadSeleccionada] = useState<Actividad | null>(null);
-  const [verDetalleDialogo, setVerDetalleDialogo] = useState(false);
   const [cargando, setCargando] = useState(true);
   
   // Estados para paginación
@@ -285,10 +284,9 @@ const RevisionActividades = () => {
     });
   };
 
-  // Manejar click en ver detalle
+  // Manejar click en ver detalle - Modificado para navegar a la página de detalles
   const handleVerDetalle = (actividad: Actividad) => {
-    setActividadSeleccionada(actividad);
-    setVerDetalleDialogo(true);
+    navigate(`/actividad/${actividad.id}`);
   };
 
   // Manejadores de paginación
@@ -306,20 +304,6 @@ const RevisionActividades = () => {
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
-
-  // Diálogo de detalle de actividad
-  const renderizarDialogoDetalle = () => {
-    if (!actividadSeleccionada) return null;
-    
-    return (
-      <ActividadDetalleModal 
-        open={verDetalleDialogo}
-        onClose={() => setVerDetalleDialogo(false)}
-        actividad={actividadSeleccionada}
-        esEditable={false} // No permitir edición en la vista de supervisor
-      />
-    );
-  };
 
   // Panel de filtros
   const renderizarPanelFiltros = () => {
@@ -994,9 +978,6 @@ const RevisionActividades = () => {
             </Box>
           )}
         </Paper>
-        
-        {/* Diálogo de detalle */}
-        {renderizarDialogoDetalle()}
       </Box>
     </Box>
   );

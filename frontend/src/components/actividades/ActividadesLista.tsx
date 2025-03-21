@@ -100,7 +100,7 @@ const SlideTransition = React.forwardRef(function Transition(
 
 interface ActividadesListaProps {
   proyectoId: string;
-  onRegistrarActividad: () => void;
+  onRegistrarActividad?: () => void;
   shouldRefresh?: boolean;
   actividadIdParaVer?: string | null;
   onCerrarDetalleActividad?: () => void;
@@ -491,15 +491,25 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
           
           <Button
             variant="contained"
+            color="primary"
+            size="small"
             startIcon={<AddIcon />}
-            onClick={onRegistrarActividad}
             sx={{
-              borderRadius: '12px',
+              borderRadius: 2,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+              fontWeight: 600,
               textTransform: 'none',
-              boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.2)}`
+              px: 2,
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+              },
+              transition: 'all 0.2s ease-in-out',
             }}
+            onClick={onRegistrarActividad}
+            disabled={!onRegistrarActividad}
           >
-            Nueva Actividad
+            Registrar Actividad
           </Button>
         </Box>
       </Box>
@@ -663,8 +673,23 @@ const ActividadesLista: React.FC<ActividadesListaProps> = ({
           ) : null}
           <Button
             variant="contained"
+            color="primary"
+            size="small"
             startIcon={<AddIcon />}
+            sx={{
+              borderRadius: 2,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+              fontWeight: 600,
+              textTransform: 'none',
+              px: 2,
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+              },
+              transition: 'all 0.2s ease-in-out',
+            }}
             onClick={onRegistrarActividad}
+            disabled={!onRegistrarActividad}
           >
             Registrar Actividad
           </Button>

@@ -1,11 +1,11 @@
 // src/services/auth.service.ts
 // Este servicio maneja la lógica de autenticación
 
-import jwt, { SignOptions, Secret } from 'jsonwebtoken'
+import jwt from 'jsonwebtoken'
+import bcrypt from 'bcrypt'
 import config from '../config/config'
 import { UsuarioLogin, UsuarioRegistro } from '../types/usuario.types'
 import * as usuarioModel from '../models/usuario.model'
-import supabase from '../config/supabase'
 
 // Iniciar sesión
 export const login = async (credenciales: UsuarioLogin) => {
@@ -20,17 +20,10 @@ export const login = async (credenciales: UsuarioLogin) => {
       throw new Error('Credenciales inválidas')
     }
 
-    // Obtener el email del usuario para iniciar sesión con Supabase Auth
-    const email = usuario.email
-    
-    // Iniciar sesión con Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
-
-    if (authError || !authData.user) {
-      console.error('Error de autenticación con Supabase:', authError)
+    // Verificar la contraseña usando bcrypt
+    const passwordValida = await bcrypt.compare(password, usuario.password)
+    if (!passwordValida) {
+      console.log('Contraseña inválida para usuario:', nombre_usuario)
       throw new Error('Credenciales inválidas')
     }
 
@@ -43,8 +36,7 @@ export const login = async (credenciales: UsuarioLogin) => {
       rol: usuario.rol,
       id_supervisor: usuario.id_supervisor
     }
-    // Utilizamos la nueva estructura de configuración
-    // @ts-ignore - Ignoramos el error de tipo ya que sabemos que el secreto es válido
+    
     const token = jwt.sign(payload, config.jwt_secret, { expiresIn: config.jwt_expires_in })
 
     return {
@@ -82,12 +74,14 @@ export const registro = async (userData: UsuarioRegistro) => {
       throw new Error('El email ya está en uso')
     }
 
-    // No necesitamos hashear la contraseña aquí, ya que Supabase Auth lo hará por nosotros
-    // Crear usuario directamente con la contraseña sin hashear
-    console.log('Creando usuario en Supabase Auth y en la tabla usuarios')
+    // Hashear la contraseña
+    const salt = await bcrypt.genSalt(10)
+    const hashedPassword = await bcrypt.hash(userData.password, salt)
+
+    // Crear usuario con la contraseña hasheada
     const nuevoUsuario = await usuarioModel.crearUsuario({
       ...userData,
-      password: userData.password // Supabase Auth hasheará esta contraseña
+      password: hashedPassword
     })
 
     return {

@@ -49,6 +49,14 @@ export const API_CONFIG = {
       BASE: '/comentarios',
       BY_ID: (id: string) => `/comentarios/${id}`,
     },
+    RECURSOS: {
+      BASE: '/recursos',
+      BY_ID: (id: string) => `/recursos/${id}`,
+      BY_PROYECTO: (proyectoId: string) => `/recursos/proyecto/${proyectoId}`,
+      ARCHIVAR: (id: string) => `/recursos/${id}/archivar`,
+      RESTAURAR: (id: string) => `/recursos/${id}/restaurar`,
+      URL_FIRMADA: (id: string) => `/recursos/${id}/url-firmada`,
+    },
   },
   TIMEOUT: 30000, // 30 segundos
 };

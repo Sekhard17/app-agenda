@@ -5,6 +5,8 @@ import { Request, Response, NextFunction } from 'express'
 import * as usuariosService from '../services/usuarios.service'
 import { UsuarioActualizar } from '../types/usuario.types'
 import { RequestHandler } from 'express'
+import RexService from '../services/rex.service'
+import supabase from '../config/supabase'
 
 // Obtener un usuario por ID
 export const getUsuario: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -99,6 +101,58 @@ export const getUsuarioDetalle: RequestHandler = async (req: Request, res: Respo
     if (usuario.rol === 'supervisor') {
       const supervisados = await usuariosService.obtenerSupervisados(id)
       detalles.supervisados = supervisados
+    }
+    
+    // Obtener información laboral desde REX usando el RUT
+    try {
+      if (usuario.rut) {
+        // Obtener datos del empleado desde la tabla empleados_rex
+        const empleadoRex = await RexService.obtenerEmpleadoPorRut(usuario.rut)
+        
+        if (empleadoRex) {
+          // Obtener contratos activos del empleado
+          const contratos = await RexService.obtenerContratosEmpleado(usuario.rut, true)
+          
+          if (contratos && contratos.length > 0) {
+            // Obtener información del contrato activo más reciente
+            const contratoActivo = contratos[0]
+            
+            // Obtener información adicional de la empresa
+            const { data: empresa } = await supabase
+              .from('empresas_rex')
+              .select('nombre')
+              .eq('codigo', contratoActivo.empresa_id)
+              .single();
+            
+            // Obtener información adicional del centro de costo
+            const { data: centroCosto } = await supabase
+              .from('centros_costo_rex')
+              .select('nombre')
+              .eq('codigo', contratoActivo.centro_costo_codigo)
+              .single();
+            
+            // Añadir información laboral a los detalles
+            detalles.informacionLaboral = {
+              empresa: {
+                codigo: contratoActivo.empresa_id,
+                nombre: empresa?.nombre || 'No asignado'
+              },
+              centroCosto: {
+                codigo: contratoActivo.centro_costo_codigo,
+                nombre: centroCosto?.nombre || 'No asignado'
+              },
+              cargo: contratoActivo.cargos_rex?.nombre || 'No asignado',
+              supervisor: contratoActivo.rut_supervisor || 'No asignado',
+              fechaInicio: contratoActivo.fecha_inicio,
+              fechaTermino: contratoActivo.fecha_termino,
+              estado: contratoActivo.estado
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`No se pudo obtener información laboral para el usuario ${usuario.rut}:`, error)
+      // No interrumpimos el flujo principal si hay error en la información laboral
     }
     
     res.json(detalles)

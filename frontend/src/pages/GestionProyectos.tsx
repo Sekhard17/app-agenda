@@ -54,7 +54,7 @@ import {
   Info as InfoIcon,
   Description as DescriptionIcon,
   Clear as ClearIcon,
-  Home as HomeIcon,
+  Home as HomeIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -66,6 +66,31 @@ import { motion } from 'framer-motion';
 import ApiService from '../services/api.service';
 import { API_CONFIG } from '../config/api.config';
 import DualView, { ViewType } from '../components/DualView';
+
+// Importar FilePond y sus plugins
+import { FilePond, registerPlugin } from 'react-filepond';
+import FilePondPluginImagePreview from 'filepond-plugin-image-preview';
+import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type';
+import FilePondPluginFileValidateSize from 'filepond-plugin-file-validate-size';
+import FilePondPluginImageExifOrientation from 'filepond-plugin-image-exif-orientation';
+import FilePondPluginImageCrop from 'filepond-plugin-image-crop';
+import FilePondPluginImageResize from 'filepond-plugin-image-resize';
+import FilePondPluginImageTransform from 'filepond-plugin-image-transform';
+
+// Importar estilos de FilePond
+import 'filepond/dist/filepond.min.css';
+import 'filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css';
+
+// Registrar plugins de FilePond
+registerPlugin(
+  FilePondPluginImagePreview,
+  FilePondPluginFileValidateType,
+  FilePondPluginFileValidateSize,
+  FilePondPluginImageExifOrientation,
+  FilePondPluginImageCrop,
+  FilePondPluginImageResize,
+  FilePondPluginImageTransform
+);
 
 // Definir la interfaz para los proyectos
 interface Proyecto {
@@ -79,7 +104,6 @@ interface Proyecto {
   fecha_inicio?: Date;
   fecha_fin?: Date;
   responsable_id?: string;
-  presupuesto?: number;
   fecha_creacion: Date;
   fecha_actualizacion: Date;
 }
@@ -94,7 +118,7 @@ interface ProyectoForm {
   fecha_inicio?: Date | null;
   fecha_fin?: Date | null;
   responsable_id?: string;
-  presupuesto?: number | null;
+  recursos: any[];
 }
 
 // Componente principal
@@ -133,7 +157,7 @@ const GestionProyectos = () => {
     estado: 'planificado',
     fecha_inicio: null,
     fecha_fin: null,
-    presupuesto: null
+    recursos: []
   });
 
   // Estados para validación
@@ -199,14 +223,14 @@ const GestionProyectos = () => {
       estado: 'planificado',
       fecha_inicio: null,
       fecha_fin: null,
-      presupuesto: null
+      recursos: []
     });
     setFormMode('crear');
     setOpenDialog(true);
   };
 
   // Abrir diálogo para editar proyecto
-  const handleOpenEditDialog = (proyecto: Proyecto) => {
+  const handleOpenEditDialog = async (proyecto: Proyecto) => {
     setSelectedProyecto(proyecto);
     setFormData({
       nombre: proyecto.nombre,
@@ -214,10 +238,46 @@ const GestionProyectos = () => {
       estado: proyecto.estado,
       fecha_inicio: proyecto.fecha_inicio ? new Date(proyecto.fecha_inicio) : null,
       fecha_fin: proyecto.fecha_fin ? new Date(proyecto.fecha_fin) : null,
-      presupuesto: proyecto.presupuesto || null
+      recursos: []
     });
     setFormMode('editar');
     setOpenDialog(true);
+
+    try {
+      const { API_CONFIG } = await import('../config/api.config');
+      const response = await axios.get(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RECURSOS.BY_PROYECTO(proyecto.id)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data.recursos) {
+        // Convertir los recursos a formato FilePond
+        const recursosFilePond = response.data.recursos.map((recurso: any) => ({
+          source: recurso.id,
+          options: {
+            type: 'local',
+            file: {
+              name: recurso.nombre,
+              size: recurso.tamaño_bytes,
+              type: recurso.tipo_archivo
+            }
+          },
+          filename: recurso.nombre
+        }));
+
+        setFormData(prev => ({
+          ...prev,
+          recursos: recursosFilePond
+        }));
+      }
+    } catch (error) {
+      console.error('Error al cargar recursos:', error);
+      mostrarSnackbar('Error al cargar los recursos del proyecto', 'error');
+    }
   };
 
   // Cerrar diálogo
@@ -373,6 +433,14 @@ const GestionProyectos = () => {
     }
   };
 
+  // Manejar archivos de FilePond
+  const handleUpdateFiles = (fileItems: any[]) => {
+    setFormData(prevData => ({
+      ...prevData,
+      recursos: fileItems
+    }));
+  };
+
   // Guardar proyecto (crear o actualizar)
   const handleSaveProyecto = async () => {
     if (!validateForm()) {
@@ -381,16 +449,18 @@ const GestionProyectos = () => {
     }
 
     try {
-      // Importar la configuración de la API
       const { API_CONFIG } = await import('../config/api.config');
       
       if (formMode === 'crear') {
-        // Crear nuevo proyecto
-        console.log('Creando nuevo proyecto con supervisor ID:', usuario?.id);
-        await axios.post(
+        // Crear el proyecto primero
+        const proyectoResponse = await axios.post(
           `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PROYECTOS.BASE}`,
           {
-            ...formData,
+            nombre: formData.nombre,
+            descripcion: formData.descripcion,
+            estado: formData.estado,
+            fecha_inicio: formData.fecha_inicio,
+            fecha_fin: formData.fecha_fin,
             id_supervisor: usuario?.id
           },
           {
@@ -399,19 +469,73 @@ const GestionProyectos = () => {
             }
           }
         );
+
+        // Si hay recursos, subirlos
+        if (formData.recursos && formData.recursos.length > 0) {
+          const proyectoId = proyectoResponse.data.proyecto.id;
+          
+          // Subir cada recurso
+          for (const fileItem of formData.recursos) {
+            const formDataArchivo = new FormData();
+            formDataArchivo.append('archivo', fileItem.file);
+            formDataArchivo.append('id_proyecto', proyectoId);
+            formDataArchivo.append('nombre', fileItem.filename);
+            formDataArchivo.append('descripcion', `Recurso adjunto al crear el proyecto: ${formData.nombre}`);
+
+            await axios.post(
+              `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RECURSOS.BASE}`,
+              formDataArchivo,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'multipart/form-data'
+                }
+              }
+            );
+          }
+        }
+
         mostrarSnackbar('Proyecto creado exitosamente', 'success');
       } else {
         // Actualizar proyecto existente
-        console.log('Actualizando proyecto ID:', selectedProyecto?.id);
         await axios.put(
           `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PROYECTOS.BY_ID(selectedProyecto?.id || '')}`,
-          formData,
+          {
+            nombre: formData.nombre,
+            descripcion: formData.descripcion,
+            estado: formData.estado,
+            fecha_inicio: formData.fecha_inicio,
+            fecha_fin: formData.fecha_fin
+          },
           {
             headers: {
               Authorization: `Bearer ${token}`
             }
           }
         );
+
+        // Si hay nuevos recursos, subirlos
+        if (formData.recursos && formData.recursos.length > 0) {
+          for (const fileItem of formData.recursos) {
+            const formDataArchivo = new FormData();
+            formDataArchivo.append('archivo', fileItem.file);
+            formDataArchivo.append('id_proyecto', selectedProyecto?.id || '');
+            formDataArchivo.append('nombre', fileItem.filename);
+            formDataArchivo.append('descripcion', `Recurso adjunto al editar el proyecto: ${formData.nombre}`);
+
+            await axios.post(
+              `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RECURSOS.BASE}`,
+              formDataArchivo,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'multipart/form-data'
+                }
+              }
+            );
+          }
+        }
+
         mostrarSnackbar('Proyecto actualizado exitosamente', 'success');
       }
       
@@ -1592,6 +1716,108 @@ const GestionProyectos = () => {
                   </Alert>
                 </Grid>
               )}
+
+              <Grid item xs={12}>
+                <Box
+                  sx={{
+                    '& .filepond--panel-root': {
+                      backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                      borderRadius: '12px',
+                      border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                    },
+                    '& .filepond--drop-label': {
+                      color: theme.palette.text.primary,
+                      fontSize: '1rem',
+                      fontFamily: theme.typography.fontFamily,
+                    },
+                    '& .filepond--label-action': {
+                      textDecoration: 'none',
+                      color: theme.palette.primary.main,
+                    },
+                    '& .filepond--item-panel': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    },
+                    '& .filepond-preview-wrapper': {
+                      '& .filepond--item': {
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                      },
+                      '& .filepond--image-preview-wrapper': {
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                      },
+                      '& .filepond--image-preview': {
+                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                        height: '170px !important',
+                      }
+                    }
+                  }}
+                >x
+                  <FilePond
+                    files={formData.recursos}
+                    onupdatefiles={handleUpdateFiles}
+                    allowMultiple={true}
+                    maxFiles={5}
+                    server={{
+                      load: async (source, load, error) => {
+                        try {
+                          const { API_CONFIG } = await import('../config/api.config');
+                          const response = await axios.get(
+                            `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RECURSOS.URL_FIRMADA(source)}`,
+                            {
+                              headers: {
+                                Authorization: `Bearer ${token}`
+                              }
+                            }
+                          );
+                          
+                          if (response.data.signedUrl) {
+                            const fileResponse = await fetch(response.data.signedUrl);
+                            const blob = await fileResponse.blob();
+                            load(blob);
+                          }
+                        } catch (err) {
+                          error('Error al cargar el archivo');
+                        }
+                      }
+                    }}
+                    acceptedFileTypes={[
+                      'application/pdf',
+                      'image/*',
+                      'image/webp',
+                      'image/jpeg',
+                      'image/png',
+                      'image/gif',
+                      'application/msword',
+                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    ]}
+                    maxFileSize="10MB"
+                    labelIdle='Arrastra y suelta archivos o <span class="filepond--label-action">Examinar</span>'
+                    labelMaxFileSizeExceeded="El archivo es demasiado grande"
+                    labelMaxFileSize="Tamaño máximo: 10MB"
+                    labelFileTypeNotAllowed="Tipo de archivo no permitido"
+                    fileValidateTypeLabelExpectedTypes="Archivos permitidos: PDF, imágenes, documentos Word"
+                    labelFileProcessingComplete="Archivo listo"
+                    labelFileProcessing="Subiendo"
+                    labelFileProcessingError="Error al subir el archivo"
+                    labelFileProcessingRevertError="Error al eliminar el archivo"
+                    labelTapToCancel="clic para cancelar"
+                    labelTapToRetry="clic para reintentar"
+                    labelTapToUndo="clic para deshacer"
+                    credits={false}
+                    allowImagePreview={true}
+                    allowImageExifOrientation={true}
+                    imagePreviewMinHeight={170}
+                    imagePreviewMaxHeight={256}
+                    allowImageTransform={true}
+                    imageTransformOutputQuality={80}
+                    imagePreviewTransparencyIndicator="grid"
+                    stylePanelAspectRatio="1:1"
+                    imagePreviewHeight={170}
+                    className="filepond-preview-wrapper"
+                  />
+                </Box>
+              </Grid>
             </Grid>
           </DialogContent>
 

@@ -109,7 +109,7 @@ const ProyectoNoEncontrado: React.FC = () => {
 };
 
 const ActividadesTab: React.FC<TabContentProps & { 
-  onRegistrarActividad: () => void;
+  onRegistrarActividad?: () => void;
   shouldRefresh: boolean;
   actividadIdParaVer?: string | null;
   onCerrarDetalleActividad?: () => void;

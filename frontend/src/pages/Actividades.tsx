@@ -16,7 +16,6 @@ import {
   Grid,
   useTheme,
   Divider,
-  Dialog,
   alpha,
   SelectChangeEvent
 } from '@mui/material';
@@ -30,7 +29,6 @@ import {
 } from '@mui/icons-material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import ActividadesLista from '../components/actividades/ActividadesLista';
-import RegistrarActividad from '../components/actividades/RegistrarActividad';
 import ProyectosService from '../services/proyectos.service';
 
 const Actividades: React.FC = () => {
@@ -39,7 +37,6 @@ const Actividades: React.FC = () => {
   
   // Estados
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState<string>('');
-  const [modalActividadAbierto, setModalActividadAbierto] = useState<boolean>(false);
   const [proyectos, setProyectos] = useState<any[]>([]);
   const [cargandoProyectos, setCargandoProyectos] = useState<boolean>(true);
   
@@ -67,16 +64,6 @@ const Actividades: React.FC = () => {
   // Manejar cambio de proyecto
   const handleCambioProyecto = (event: SelectChangeEvent<string>) => {
     setProyectoSeleccionado(event.target.value);
-  };
-  
-  // Manejar apertura/cierre del modal
-  const handleAbrirModal = () => setModalActividadAbierto(true);
-  const handleCerrarModal = () => setModalActividadAbierto(false);
-  
-  // Manejar registro exitoso de actividad
-  const handleRegistroExitoso = () => {
-    handleCerrarModal();
-    // Aquí podríamos recargar las actividades si es necesario
   };
   
   return (
@@ -129,7 +116,6 @@ const Actividades: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={handleAbrirModal}
             sx={{
               borderRadius: '10px',
               boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}`,
@@ -223,7 +209,6 @@ const Actividades: React.FC = () => {
         {proyectoSeleccionado ? (
           <ActividadesLista 
             proyectoId={proyectoSeleccionado} 
-            onRegistrarActividad={handleAbrirModal} 
           />
         ) : (
           <Box sx={{ p: 4, textAlign: 'center' }}>
@@ -233,25 +218,6 @@ const Actividades: React.FC = () => {
           </Box>
         )}
       </Paper>
-      
-      {/* Modal para registrar actividad */}
-      <Dialog 
-        open={modalActividadAbierto} 
-        onClose={handleCerrarModal}
-        fullWidth
-        maxWidth="md"
-        PaperProps={{
-          sx: {
-            borderRadius: '16px',
-            overflow: 'hidden'
-          }
-        }}
-      >
-        <RegistrarActividad 
-          onClose={handleCerrarModal}
-          onSuccess={handleRegistroExitoso}
-        />
-      </Dialog>
     </Container>
   );
 };

@@ -3,6 +3,7 @@
 
 import supabase from '../config/supabase'
 import { Usuario, UsuarioRegistro, UsuarioActualizar } from '../types/usuario.types'
+import bcrypt from 'bcrypt'
 
 export interface IUsuario {
   id: string;
@@ -15,6 +16,7 @@ export interface IUsuario {
   apmaterno?: string;
   rut: string;
   avatar?: string;
+  id_supervisor?: string | null;
 }
 
 // Función para validar RUT chileno
@@ -179,8 +181,6 @@ export const crearUsuario = async (usuario: UsuarioRegistro & { password: string
       id_supervisor: usuario.id_supervisor || null,
       nombre_usuario: usuario.nombre_usuario
     }
-
-
 
     // Verificar si el usuario ya existe en la tabla usuarios por ID o por email
     const { data: existingUserById, error: checkErrorById } = await supabase

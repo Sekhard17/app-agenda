@@ -34,13 +34,16 @@ import AsignarProyectos from './pages/AsignarProyectos';
 import ProyectosInactivos from './pages/ProyectosInactivos';
 import Supervisados from './pages/Supervisados';
 import TiposActividad from './pages/TiposActividad';
+import DetalleActividad from './pages/DetalleActividad';
 
 // Páginas para el rol de funcionario
 import MisActividades from './pages/MisActividades';
-import RegistrarActividad from './pages/RegistrarActividad';
 import PortalProyectos from './pages/PortalProyectos';
 import DetalleProyecto from './pages/DetalleProyecto';
 import Actividades from './pages/Actividades';
+
+// Página de perfil
+import Perfil from './pages/Perfil';
 
 // Crear cliente de consulta
 const queryClient = new QueryClient();
@@ -279,15 +282,17 @@ function App() {
                         </PrivateRoute>
                       } />
                       
+                      {/* Ruta para DetalleActividad */}
+                      <Route path="actividad/:id" element={
+                        <PrivateRoute roles={['supervisor']}>
+                          <DetalleActividad />
+                        </PrivateRoute>
+                      } />
+                      
                       {/* Rutas para funcionario */}
                       <Route path="mis-actividades" element={
                         <PrivateRoute roles={['funcionario']}>
                           <MisActividades />
-                        </PrivateRoute>
-                      } />
-                      <Route path="registrar-actividad" element={
-                        <PrivateRoute roles={['funcionario']}>
-                          <RegistrarActividad />
                         </PrivateRoute>
                       } />
                       <Route path="portal-proyectos" element={
@@ -305,6 +310,13 @@ function App() {
                       <Route path="actividades" element={
                         <PrivateRoute>
                           <Actividades />
+                        </PrivateRoute>
+                      } />
+                      
+                      {/* Ruta para Perfil (accesible para todos los roles) */}
+                      <Route path="perfil" element={
+                        <PrivateRoute>
+                          <Perfil />
                         </PrivateRoute>
                       } />
                     </Route>
