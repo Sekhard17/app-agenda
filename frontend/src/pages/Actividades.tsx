@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -13,9 +13,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid,
   useTheme,
-  Divider,
   alpha,
   SelectChangeEvent
 } from '@mui/material';
@@ -27,23 +25,20 @@ import {
   Add as AddIcon,
   Dashboard as DashboardIcon
 } from '@mui/icons-material';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import ActividadesLista from '../components/actividades/ActividadesLista';
 import ProyectosService from '../services/proyectos.service';
 
 const Actividades: React.FC = () => {
   const theme = useTheme();
-  const navigate = useNavigate();
   
   // Estados
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState<string>('');
   const [proyectos, setProyectos] = useState<any[]>([]);
-  const [cargandoProyectos, setCargandoProyectos] = useState<boolean>(true);
   
   // Cargar proyectos para el filtro
   useEffect(() => {
     const obtenerProyectos = async () => {
-      setCargandoProyectos(true);
       try {
         const data = await ProyectosService.getProyectosActivos();
         setProyectos(data);
@@ -53,8 +48,6 @@ const Actividades: React.FC = () => {
         }
       } catch (error) {
         console.error('Error al cargar proyectos:', error);
-      } finally {
-        setCargandoProyectos(false);
       }
     };
     
