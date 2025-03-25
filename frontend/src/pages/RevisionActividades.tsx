@@ -51,6 +51,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import { API_CONFIG } from '../config/api.config';
+import InformePorFechasModal from '../components/InformePorFechasModal';
 
 interface Usuario {
   id: string;
@@ -115,6 +116,9 @@ const RevisionActividades = () => {
 
   // Agregar estado para supervisados
   const [supervisados, setSupervisados] = useState<Usuario[]>([]);
+
+  // Estado para la modal de informes
+  const [openInformePorFechasModal, setOpenInformePorFechasModal] = useState(false);
 
   // Cargar actividades
   const cargarActividades = async () => {
@@ -454,6 +458,11 @@ const RevisionActividades = () => {
     setPage(0);
   };
 
+  // Función para abrir la modal con los filtros actuales
+  const handleExportarDatos = () => {
+    setOpenInformePorFechasModal(true);
+  };
+
   return (
     <Box sx={{ flexGrow: 1, width: '100%', pb: 4 }}>
       {/* Hero Section */}
@@ -663,6 +672,7 @@ const RevisionActividades = () => {
                 variant="outlined"
                 color="primary"
                 size="small"
+                onClick={handleExportarDatos}
                 sx={{ 
                   height: '40px',
                   borderRadius: '8px',
@@ -979,6 +989,15 @@ const RevisionActividades = () => {
           )}
         </Paper>
       </Box>
+
+      {/* Modal de Informes por Fechas */}
+      <InformePorFechasModal
+        open={openInformePorFechasModal}
+        onClose={() => setOpenInformePorFechasModal(false)}
+        initialStartDate={filtros.fechaInicio}
+        initialEndDate={filtros.fechaFin}
+        initialProyectoId={filtros.proyecto}
+      />
     </Box>
   );
 };

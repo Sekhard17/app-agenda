@@ -1720,39 +1720,84 @@ const GestionProyectos = () => {
               <Grid item xs={12}>
                 <Box
                   sx={{
-                    '& .filepond--panel-root': {
-                      backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                    '& .filepond--item': {
+                      marginBottom: '10px',
                       borderRadius: '12px',
-                      border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                      backgroundColor: theme.palette.background.paper,
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.03)}`,
+                      border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: `0 8px 24px ${alpha(theme.palette.common.black, 0.06)}`,
+                        borderColor: alpha(theme.palette.primary.main, 0.2),
+                        backgroundColor: alpha(theme.palette.background.paper, 0.95)
+                      }
                     },
-                    '& .filepond--drop-label': {
-                      color: theme.palette.text.primary,
-                      fontSize: '1rem',
-                      fontFamily: theme.typography.fontFamily,
+                    '& .filepond--file': {
+                      padding: '12px 16px',
+                      height: '100%',
+                      backgroundColor: 'transparent'
                     },
-                    '& .filepond--label-action': {
-                      textDecoration: 'none',
-                      color: theme.palette.primary.main,
+                    '& .filepond--file-wrapper': {
+                      height: '100%',
+                      borderRadius: '10px',
+                      backgroundColor: 'transparent'
                     },
                     '& .filepond--item-panel': {
-                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                      backgroundColor: 'transparent',
+                      border: 'none'
                     },
-                    '& .filepond-preview-wrapper': {
-                      '& .filepond--item': {
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                      },
-                      '& .filepond--image-preview-wrapper': {
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                      },
-                      '& .filepond--image-preview': {
-                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
-                        height: '170px !important',
+                    '& .filepond--panel': {
+                      backgroundColor: 'transparent'
+                    },
+                    '& .filepond--panel-root': {
+                      backgroundColor: alpha(theme.palette.background.paper, 0.6),
+                      borderRadius: '12px',
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      backdropFilter: 'blur(8px)'
+                    },
+                    '& .filepond--drip-blob': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.05)
+                    },
+                    '& .filepond--file-action-button': {
+                      cursor: 'pointer',
+                      marginLeft: '12px',
+                      backgroundColor: alpha(theme.palette.error.main, 0.08),
+                      color: theme.palette.error.main,
+                      border: 'none',
+                      borderRadius: '8px',
+                      width: '28px',
+                      height: '28px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.error.main, 0.12),
+                        transform: 'scale(1.1)'
                       }
+                    },
+                    '& .filepond--file-status-main': {
+                      fontSize: '0.75rem',
+                      color: theme.palette.text.secondary,
+                      fontWeight: 500
+                    },
+                    '& .filepond--file-info-main': {
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                      color: theme.palette.text.primary
+                    },
+                    '& .filepond--file-info-sub': {
+                      fontSize: '0.75rem',
+                      color: theme.palette.text.secondary
+                    },
+                    '& .filepond--list': {
+                      marginTop: '8px'
                     }
                   }}
-                >x
+                >
                   <FilePond
                     files={formData.recursos}
                     onupdatefiles={handleUpdateFiles}
@@ -1792,28 +1837,23 @@ const GestionProyectos = () => {
                       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                     ]}
                     maxFileSize="10MB"
-                    labelIdle='Arrastra y suelta archivos o <span class="filepond--label-action">Examinar</span>'
-                    labelMaxFileSizeExceeded="El archivo es demasiado grande"
-                    labelMaxFileSize="Tamaño máximo: 10MB"
-                    labelFileTypeNotAllowed="Tipo de archivo no permitido"
-                    fileValidateTypeLabelExpectedTypes="Archivos permitidos: PDF, imágenes, documentos Word"
-                    labelFileProcessingComplete="Archivo listo"
-                    labelFileProcessing="Subiendo"
-                    labelFileProcessingError="Error al subir el archivo"
-                    labelFileProcessingRevertError="Error al eliminar el archivo"
-                    labelTapToCancel="clic para cancelar"
-                    labelTapToRetry="clic para reintentar"
-                    labelTapToUndo="clic para deshacer"
+                    labelIdle='<span style="display: flex; align-items: center; gap: 8px; width: 100%;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="color: currentColor"><path d="M12 16L12 8M12 8L15 11M12 8L9 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Adjuntar archivos<span style="margin-left: auto; opacity: 0.7;">PDF, IMG, DOC • Máx: 10MB</span></span>'
+                    labelMaxFileSizeExceeded="✕"
+                    labelMaxFileSize="10MB"
+                    labelFileTypeNotAllowed="✕"
+                    fileValidateTypeLabelExpectedTypes="PDF/IMG/DOC"
+                    labelFileProcessingComplete="✓"
+                    labelFileProcessing="Procesando..."
+                    labelFileProcessingError="✕"
+                    labelFileProcessingRevertError="✕"
+                    labelTapToCancel="✕"
+                    labelTapToRetry="↻"
+                    labelTapToUndo="↩"
                     credits={false}
-                    allowImagePreview={true}
+                    allowImagePreview={false}
                     allowImageExifOrientation={true}
-                    imagePreviewMinHeight={170}
-                    imagePreviewMaxHeight={256}
                     allowImageTransform={true}
                     imageTransformOutputQuality={80}
-                    imagePreviewTransparencyIndicator="grid"
-                    stylePanelAspectRatio="1:1"
-                    imagePreviewHeight={170}
                     className="filepond-preview-wrapper"
                   />
                 </Box>

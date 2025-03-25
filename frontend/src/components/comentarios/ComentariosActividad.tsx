@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import {
   Box,
   Typography,
@@ -36,10 +36,15 @@ interface ComentariosActividadProps {
   onError?: (mensaje: string) => void;
 }
 
-const ComentariosActividad: React.FC<ComentariosActividadProps> = ({
+// Definir la interfaz de la referencia
+export interface ComentariosActividadRef {
+  cargarComentarios: () => Promise<void>;
+}
+
+const ComentariosActividad = forwardRef<ComentariosActividadRef, ComentariosActividadProps>(({
   idActividad,
   onError
-}) => {
+}, ref) => {
   const theme = useTheme();
   const { usuario } = useAuth();
   
@@ -80,6 +85,11 @@ const ComentariosActividad: React.FC<ComentariosActividadProps> = ({
       setCargando(false);
     }
   };
+
+  // Exponer el método cargarComentarios a través de la referencia
+  useImperativeHandle(ref, () => ({
+    cargarComentarios
+  }));
 
   useEffect(() => {
     cargarComentarios();
@@ -515,6 +525,6 @@ const ComentariosActividad: React.FC<ComentariosActividadProps> = ({
       </Box>
     </Box>
   );
-};
+});
 
 export default ComentariosActividad;

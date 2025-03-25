@@ -41,22 +41,92 @@ export const obtenerActividadesPorUsuario = async (usuarioId: string, fecha?: Da
 }
 
 // Obtener actividades en un rango de fechas
-export const obtenerActividadesPorRango = async (usuarioId: string, fechaInicio: Date, fechaFin: Date, estado: string = 'enviado') => {
-  const fechaInicioStr = fechaInicio.toISOString().split('T')[0]
-  const fechaFinStr = fechaFin.toISOString().split('T')[0]
+export const obtenerActividadesPorRango = async (usuarioId: string, fechaInicio: Date, fechaFin: Date, estados: string[] = ['enviado', 'enviada']) => {
+  // Ajustar por zona horaria para evitar problemas con fechas
+  const fechaInicioStr = formatearFechaParaDB(fechaInicio);
+  const fechaFinStr = formatearFechaParaDB(fechaFin);
+
+  console.log('Consultando actividades con parámetros:', {
+    usuarioId,
+    fechaInicio: fechaInicioStr,
+    fechaFin: fechaFinStr,
+    estados
+  });
+
+  // Verificar que las fechas son válidas
+  if (isNaN(fechaInicio.getTime()) || isNaN(fechaFin.getTime())) {
+    console.error('Fechas inválidas:', { fechaInicio, fechaFin });
+    throw new Error('Fechas inválidas');
+  }
+
+  // Asegurar que todas las fechas estén en formato YYYY-MM-DD para la base de datos
+  const fechaInicioDB = fechaInicioStr;
+  const fechaFinDB = fechaFinStr;
+
+  console.log('Fechas formateadas para la consulta:', {
+    fechaInicioDB,
+    fechaFinDB
+  });
 
   const { data, error } = await supabase
     .from('actividades')
-    .select('*, proyectos(nombre), usuarios(id, nombres, appaterno, apmaterno, nombre_usuario)')
+    .select(`
+      *,
+      proyectos (
+        id,
+        nombre,
+        activo
+      ),
+      tipos_actividad (
+        id,
+        nombre
+      ),
+      usuarios (
+        id,
+        nombres,
+        appaterno,
+        apmaterno,
+        nombre_usuario
+      )
+    `)
     .eq('id_usuario', usuarioId)
-    .eq('estado', estado)
-    .gte('fecha', fechaInicioStr)
-    .lte('fecha', fechaFinStr)
-    .order('fecha', { ascending: false })
-    .order('hora_inicio', { ascending: true })
+    .in('estado', estados)
+    .gte('fecha', fechaInicioDB)
+    .lte('fecha', fechaFinDB)
+    .order('fecha', { ascending: true })
+    .order('hora_inicio', { ascending: true });
 
-  if (error) throw error
-  return data
+  if (error) {
+    console.error('Error al obtener actividades:', error);
+    throw error;
+  }
+
+  console.log(`Se encontraron ${data?.length || 0} actividades`);
+  
+  // Depuración detallada
+  if (data && data.length > 0) {
+    console.log('Primera actividad:', JSON.stringify(data[0], null, 2));
+  } else {
+    console.log('No se encontraron actividades, revisando query con datos ampliados...');
+    
+    // Hacer una consulta más amplia para depuración
+    const { data: debugData, error: debugError } = await supabase
+      .from('actividades')
+      .select('id, fecha, estado, id_usuario')
+      .eq('id_usuario', usuarioId)
+      .order('fecha', { ascending: true });
+      
+    if (debugError) {
+      console.error('Error en consulta de depuración:', debugError);
+    } else {
+      console.log(`Se encontraron ${debugData?.length || 0} actividades totales para el usuario`);
+      if (debugData && debugData.length > 0) {
+        console.log('Muestra de actividades disponibles:', debugData.slice(0, 5));
+      }
+    }
+  }
+  
+  return data;
 }
 
 // Crear una nueva actividad
@@ -196,8 +266,8 @@ export const obtenerActividadesSupervisados = async (
 ) => {
   console.log('Buscando actividades supervisadas para el supervisor:', supervisorId);
   console.log('Filtros aplicados:', { 
-    fechaInicio: fechaInicio ? fechaInicio.toISOString() : undefined, 
-    fechaFin: fechaFin ? fechaFin.toISOString() : undefined, 
+    fechaInicio: fechaInicio ? formatearFechaParaDB(fechaInicio) : undefined, 
+    fechaFin: fechaFin ? formatearFechaParaDB(fechaFin) : undefined, 
     usuarioId, 
     proyectoId, 
     estado 
@@ -230,42 +300,78 @@ export const obtenerActividadesSupervisados = async (
     .from('actividades')
     .select(`
       *,
-      proyectos(nombre),
+      proyectos(id, nombre, activo),
+      tipos_actividad(id, nombre),
       usuarios(id, nombres, appaterno, apmaterno, nombre_usuario)
     `)
-    .in('id_usuario', idsUsuariosSupervisados) // Filtrar por los IDs de usuarios supervisados
-    .order('fecha', { ascending: false })
-    .order('hora_inicio', { ascending: true })
+    .in('id_usuario', idsUsuariosSupervisados); // Filtrar por los IDs de usuarios supervisados
+  
+  console.log('Iniciando construcción de la consulta...');
 
+  // Verificamos las fechas y la restricción sobre las fechas de la tabla
   if (fechaInicio && fechaFin) {
-    const fechaInicioStr = fechaInicio.toISOString().split('T')[0]
-    const fechaFinStr = fechaFin.toISOString().split('T')[0]
-    query = query.gte('fecha', fechaInicioStr).lte('fecha', fechaFinStr)
+    const fechaInicioStr = formatearFechaParaDB(fechaInicio);
+    const fechaFinStr = formatearFechaParaDB(fechaFin);
+    
+    // IMPORTANTE: Esta línea es crítica debido a la restricción de la tabla
+    // La tabla tiene una restricción que solo permite fechas >= CURRENT_DATE
+    // Para verificar si hay datos históricos, necesitamos hacer una consulta sin filtrar por fecha
+    
+    // Primero, obtener algunas actividades para verificar si hay datos históricos
+    const { data: actividadesHistoricas, error: errorHistoricas } = await supabase
+      .from('actividades')
+      .select('id, fecha, estado')
+      .in('id_usuario', idsUsuariosSupervisados)
+      .eq('estado', estado || 'enviado')
+      .limit(5);
+      
+    if (errorHistoricas) {
+      console.error('Error en consulta histórica:', errorHistoricas);
+    } else {
+      console.log('Muestra de actividades disponibles:', actividadesHistoricas);
+      if (actividadesHistoricas && actividadesHistoricas.length > 0) {
+        console.log('¡Hay actividades! Verificando si hay fechas en el rango seleccionado');
+        // Mostrar las fechas disponibles para depuración
+        const fechasDisponibles = actividadesHistoricas.map(a => a.fecha);
+        console.log('Fechas disponibles en la muestra:', fechasDisponibles);
+      } else {
+        console.log('No hay actividades históricas disponibles, posible problema con la restricción de fecha');
+      }
+    }
+    
+    // Agregar filtro de fecha, pero con precaución debido a la restricción
+    query = query.gte('fecha', fechaInicioStr).lte('fecha', fechaFinStr);
     console.log(`Filtrando por fecha: ${fechaInicioStr} a ${fechaFinStr}`);
+  } else {
+    console.log('No se aplicó filtro de fechas, usando todas las fechas disponibles');
   }
 
   if (usuarioId) {
-    query = query.eq('id_usuario', usuarioId)
-    console.log(`Filtrando por usuario: ${usuarioId}`);
+    query = query.eq('id_usuario', usuarioId);
+    console.log(`Filtrando por usuario específico: ${usuarioId}`);
   }
 
   if (proyectoId) {
-    query = query.eq('id_proyecto', proyectoId)
+    query = query.eq('id_proyecto', proyectoId);
     console.log(`Filtrando por proyecto: ${proyectoId}`);
   }
   
   // Filtrar por estado
   if (estado) {
     // Si se proporciona un estado específico, filtrar por ese estado
-    query = query.eq('estado', estado)
+    query = query.eq('estado', estado);
     console.log(`Filtrando por estado especificado: ${estado}`);
   } else {
     // Por defecto, mostrar solo actividades con estado "enviado"
-    query = query.eq('estado', 'enviado')
+    query = query.eq('estado', 'enviado');
     console.log('Filtrando por estado predeterminado: enviado');
   }
+  
+  // Ordenar los resultados
+  query = query.order('fecha', { ascending: false }).order('hora_inicio', { ascending: true });
 
-  const { data, error } = await query
+  console.log('Consulta SQL completa construida, ejecutando...');
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error al obtener actividades supervisadas:', error);
@@ -273,7 +379,63 @@ export const obtenerActividadesSupervisados = async (
   }
   
   console.log(`Se encontraron ${data?.length || 0} actividades supervisadas`);
-  return data || [];
+  
+  // Procesar resultados para mejor visualización
+  if (data && data.length > 0) {
+    // Transformar los resultados para que sean más fáciles de usar
+    const actividadesProcesadas = data.map(actividad => {
+      // Extraer datos de las relaciones
+      return {
+        ...actividad,
+        nombre_proyecto: actividad.proyectos?.nombre || 'Sin proyecto',
+        nombre_tipo_actividad: actividad.tipos_actividad?.nombre || 'Sin tipo',
+        horas: calcularHoras(actividad.hora_inicio, actividad.hora_fin)
+      };
+    });
+    
+    console.log('Primera actividad procesada:', JSON.stringify(actividadesProcesadas[0], null, 2));
+    return actividadesProcesadas;
+  } else {
+    // Si no hay resultados, verificar por qué revisando las actividades de cada supervisado
+    console.log('No hay resultados, verificando actividades por cada supervisado...');
+    
+    for (const usuarioId of idsUsuariosSupervisados) {
+      const { data: actividadesUsuario, error: errorUsuario } = await supabase
+        .from('actividades')
+        .select('id, fecha, estado')
+        .eq('id_usuario', usuarioId)
+        .limit(3);
+        
+      if (errorUsuario) {
+        console.error(`Error al verificar actividades del usuario ${usuarioId}:`, errorUsuario);
+      } else {
+        console.log(`Usuario ${usuarioId} tiene ${actividadesUsuario?.length || 0} actividades`);
+      }
+    }
+    
+    return [];
+  }
+}
+
+// Función auxiliar para calcular horas
+function calcularHoras(horaInicio: string, horaFin: string): number {
+  try {
+    if (!horaInicio || !horaFin) return 0;
+    
+    // Convertir a minutos desde el inicio del día
+    const [inicioHoras, inicioMinutos] = horaInicio.split(':').map(Number);
+    const [finHoras, finMinutos] = horaFin.split(':').map(Number);
+    
+    const inicioTotalMinutos = inicioHoras * 60 + inicioMinutos;
+    const finTotalMinutos = finHoras * 60 + finMinutos;
+    
+    // Calcular diferencia en horas
+    const diferenciaMinutos = finTotalMinutos - inicioTotalMinutos;
+    return Math.round((diferenciaMinutos / 60) * 100) / 100; // Redondear a 2 decimales
+  } catch (error) {
+    console.error('Error al calcular horas:', error);
+    return 0;
+  }
 }
 
 // Interfaz para actividades
@@ -292,22 +454,67 @@ export interface IActividad {
 
 // Obtener actividades por proyecto
 export const obtenerActividadesPorProyecto = async (proyectoId: string): Promise<IActividad[]> => {
-  const { data, error } = await supabase
-    .from('actividades')
-    .select(`
-      *,
-      usuarios (
-        nombres,
-        appaterno
-      )
-    `)
-    .eq('id_proyecto', proyectoId)
-    .order('fecha', { ascending: false });
+  try {
+    console.log(`Obteniendo actividades para el proyecto: ${proyectoId}`);
+    
+    if (!proyectoId) {
+      console.error('ID de proyecto no proporcionado');
+      return [];
+    }
+    
+    const { data, error } = await supabase
+      .from('actividades')
+      .select(`
+        *,
+        usuarios (
+          nombres,
+          appaterno
+        )
+      `)
+      .eq('id_proyecto', proyectoId)
+      .order('fecha', { ascending: false });
 
-  if (error) throw error;
+    if (error) {
+      console.error('Error al obtener actividades por proyecto:', error);
+      throw error;
+    }
 
-  return data.map(actividad => ({
-    ...actividad,
-    usuario: actividad.usuarios ? `${actividad.usuarios.nombres} ${actividad.usuarios.appaterno}` : 'Usuario no encontrado'
-  }));
+    if (!data || data.length === 0) {
+      console.log(`No se encontraron actividades para el proyecto ${proyectoId}`);
+      return [];
+    }
+    
+    console.log(`Se encontraron ${data.length} actividades para el proyecto ${proyectoId}`);
+    
+    return data.map(actividad => ({
+      ...actividad,
+      usuario: actividad.usuarios ? `${actividad.usuarios.nombres} ${actividad.usuarios.appaterno}` : 'Usuario no encontrado'
+    }));
+  } catch (error) {
+    console.error('Error al obtener actividades por proyecto:', error);
+    throw error;
+  }
 };
+
+/**
+ * Formatea una fecha para DB ajustando específicamente para la zona horaria de Chile
+ * Devuelve una fecha en formato YYYY-MM-DD
+ */
+function formatearFechaParaDB(fecha: Date): string {
+  // Para Chile (zona horaria UTC-3/UTC-4), necesitamos compensar específicamente
+  // Clone la fecha para no modificar la original
+  const fechaClone = new Date(fecha);
+  
+  // Sumar 1 día para compensar la diferencia de zona horaria
+  // Esto es específico para Chile donde una fecha seleccionada como '2023-05-18'
+  // a menudo se convierte en '2023-05-17' por problema de zona horaria
+  fechaClone.setDate(fechaClone.getDate() + 1);
+  
+  // Extraer año, mes y día usando los métodos locales
+  const año = fechaClone.getFullYear();
+  const mes = String(fechaClone.getMonth() + 1).padStart(2, '0');
+  const dia = String(fechaClone.getDate()).padStart(2, '0');
+  
+  // Formato YYYY-MM-DD para la BD
+  return `${año}-${mes}-${dia}`;
+}

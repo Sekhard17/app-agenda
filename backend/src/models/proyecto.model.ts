@@ -308,3 +308,55 @@ export const obtenerAsignacionesProyecto = async (proyectoId: string): Promise<I
     return [];
   }
 };
+
+// Obtener usuarios asignados a un proyecto
+export const obtenerUsuariosDeProyecto = async (proyectoId: string) => {
+  try {
+    console.log(`Buscando usuarios asignados al proyecto: ${proyectoId}`);
+    
+    // Primero obtenemos las asignaciones
+    const { data: asignaciones, error: errorAsignaciones } = await supabase
+      .from('asignaciones_tareas')
+      .select('id_funcionario')
+      .eq('id_proyecto', proyectoId);
+    
+    if (errorAsignaciones) {
+      console.error('Error al obtener las asignaciones:', errorAsignaciones);
+      throw errorAsignaciones;
+    }
+    
+    // Si no hay asignaciones, devolvemos un array vacío
+    if (!asignaciones || asignaciones.length === 0) {
+      console.log(`No se encontraron asignaciones para el proyecto ${proyectoId}`);
+      return [];
+    }
+    
+    // Extraemos los IDs de usuarios
+    const usuarioIds = asignaciones.map(a => a.id_funcionario).filter(Boolean);
+    
+    // Si no hay IDs de usuarios, devolvemos un array vacío
+    if (usuarioIds.length === 0) {
+      console.log(`No se encontraron usuarios asignados al proyecto ${proyectoId}`);
+      return [];
+    }
+    
+    console.log(`IDs de usuarios encontrados: ${usuarioIds.join(', ')}`);
+    
+    // Ahora obtenemos los detalles de los usuarios
+    const { data: usuarios, error: errorUsuarios } = await supabase
+      .from('usuarios')
+      .select('*')
+      .in('id', usuarioIds);
+    
+    if (errorUsuarios) {
+      console.error('Error al obtener los usuarios:', errorUsuarios);
+      throw errorUsuarios;
+    }
+    
+    console.log(`Se encontraron ${usuarios?.length || 0} usuarios asignados al proyecto ${proyectoId}`);
+    return usuarios || [];
+  } catch (error) {
+    console.error('Error al obtener usuarios de proyecto:', error);
+    throw error;
+  }
+};

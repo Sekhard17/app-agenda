@@ -44,6 +44,8 @@ export const API_CONFIG = {
     INFORMES: {
       BASE: '/informes',
       SUPERVISADO_EXCEL: (id: string) => `/informes/supervisado/${id}/excel`,
+      POR_FECHAS: '/informes/por-fechas',
+      POR_PROYECTO: '/informes/por-proyecto',
     },
     COMENTARIOS: {
       BASE: '/comentarios',

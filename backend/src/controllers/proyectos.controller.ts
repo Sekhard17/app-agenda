@@ -255,20 +255,80 @@ export const getActividadesProyecto: RequestHandler = async (req: Request, res: 
     const { id } = req.params;
     const usuarioId = req.usuario?.id;
     
-    if (!usuarioId) {
-      res.status(401).json({
-        error: 'Usuario no autenticado'
+    console.log(`GET /api/proyectos/${id}/actividades - Solicitado por usuario ID: ${usuarioId}`);
+    
+    if (!id) {
+      res.status(400).json({
+        status: 'error',
+        message: 'ID del proyecto no proporcionado'
       });
       return;
     }
     
-    const actividades = await actividadModel.obtenerActividadesPorProyecto(id);
+    if (!usuarioId) {
+      res.status(401).json({
+        status: 'error',
+        message: 'Usuario no autenticado'
+      });
+      return;
+    }
     
-    res.json({ actividades });
-  } catch (error) {
-    console.error('Error al obtener actividades del proyecto:', error);
+    // Verificar si el proyecto existe
+    try {
+      const proyecto = await proyectosService.obtenerProyecto(id);
+      if (!proyecto) {
+        res.status(404).json({
+          status: 'error',
+          message: 'Proyecto no encontrado'
+        });
+        return;
+      }
+      
+      // Verificar permisos: el usuario debe estar asignado al proyecto o ser supervisor
+      let tienePermiso = proyecto.id_supervisor === usuarioId;
+      
+      if (!tienePermiso) {
+        const proyectosAsignados = await proyectosService.obtenerProyectosDeUsuario(usuarioId);
+        tienePermiso = proyectosAsignados.some(p => p.id === id);
+      }
+      
+      if (!tienePermiso && req.usuario?.rol !== 'supervisor') {
+        res.status(403).json({
+          status: 'error',
+          message: 'No tiene permisos para ver las actividades de este proyecto'
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error al verificar proyecto:', error);
+      res.status(404).json({
+        status: 'error',
+        message: 'Proyecto no encontrado'
+      });
+      return;
+    }
+    
+    // Obtener actividades
+    try {
+      const actividades = await actividadModel.obtenerActividadesPorProyecto(id);
+      
+      res.json({ 
+        status: 'success',
+        actividades 
+      });
+    } catch (error: any) {
+      console.error('Error al obtener actividades del proyecto:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error al obtener actividades del proyecto',
+        error: error.message
+      });
+    }
+  } catch (error: any) {
+    console.error('Error al procesar la solicitud de actividades del proyecto:', error);
     res.status(500).json({
-      error: 'Error al obtener actividades del proyecto'
+      status: 'error',
+      message: error.message || 'Error al obtener actividades del proyecto'
     });
   }
 };
@@ -294,5 +354,49 @@ export const getDocumentosProyecto: RequestHandler = async (req: Request, res: R
     res.status(500).json({
       error: 'Error al obtener documentos del proyecto'
     });
+  }
+};
+
+// Obtener usuarios asignados a un proyecto
+export const getUsuariosProyecto: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const usuarioId = req.usuario?.id;
+    
+    console.log(`GET /api/proyectos/${id}/usuarios - Solicitado por usuario ID: ${usuarioId}`);
+    
+    // Verificar permisos: solo puede ver si es supervisor del proyecto o si está asignado al proyecto
+    const proyecto = await proyectosService.obtenerProyecto(id);
+    
+    if (!proyecto) {
+      res.status(404).json({ message: 'Proyecto no encontrado' });
+      return;
+    }
+    
+    // Si el usuario es el supervisor del proyecto, tiene permiso
+    const esSupervisor = proyecto.id_supervisor === usuarioId;
+    
+    // Si no es supervisor, verificar si el usuario está asignado al proyecto
+    let tienePermiso = esSupervisor;
+    
+    if (!tienePermiso) {
+      const proyectosUsuario = await proyectosService.obtenerProyectosDeUsuario(usuarioId as string);
+      tienePermiso = proyectosUsuario.some(p => p.id === id);
+    }
+    
+    // Si no tiene permiso (no es supervisor ni está asignado) y no es admin,
+    // denegar acceso
+    if (!tienePermiso && req.usuario?.rol !== 'supervisor') {
+      res.status(403).json({ message: 'No tiene permisos para ver los usuarios de este proyecto' });
+      return;
+    }
+    
+    // Obtener usuarios por proyecto usando el servicio apropiado
+    const usuarios = await proyectosService.obtenerUsuariosDeProyecto(id);
+    
+    res.json({ data: usuarios });
+  } catch (error: any) {
+    console.error('Error al obtener usuarios del proyecto:', error);
+    res.status(500).json({ message: error.message || 'Error al obtener usuarios del proyecto' });
   }
 };

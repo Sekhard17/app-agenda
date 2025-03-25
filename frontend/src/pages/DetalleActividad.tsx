@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Box, 
   Typography, 
@@ -10,31 +10,27 @@ import {
   alpha,
   Skeleton,
   Avatar,
-  IconButton,
-  Breadcrumbs,
-  Link,
-  Fade,
-  useMediaQuery,
   Card,
   CardContent,
-  Divider,
+  Tab,
+  Tabs,
+  TextField,
+  Container
 } from '@mui/material';
 import { 
   CalendarToday as CalendarTodayIcon,
   AccessTime as AccessTimeIcon,
   Folder as FolderIcon,
-  CheckCircle as CheckCircleIcon,
   ArrowBack as ArrowBackIcon,
   Description as DescriptionIcon,
-  Home as HomeIcon,
-  Assignment as AssignmentIcon,
-  NavigateNext as NavigateNextIcon,
   Person as PersonIcon,
   Email as EmailIcon,
   Domain as DomainIcon,
   Schedule as ScheduleIcon,
   Info as InfoIcon,
-  AttachFile as AttachFileIcon
+  AttachFile as AttachFileIcon,
+  Comment as CommentIcon,
+  Send as SendIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -43,22 +39,101 @@ import ActividadesService from '../services/actividades.service';
 import { Actividad } from '../services/actividades.service';
 import DocumentosService, { Documento } from '../services/documentos.service';
 import DocumentosSelector from '../components/documentos/DocumentosSelector';
+import ComentariosActividad, { ComentariosActividadRef } from '../components/comentarios/ComentariosActividad';
+import ComentariosService from '../services/comentarios.service';
+import { useAuth } from '../context/AuthContext';
+
+// Interface para las pestañas
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+// Componente para mostrar el contenido de cada pestaña
+const TabPanel = (props: TabPanelProps) => {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`activity-tabpanel-${index}`}
+      aria-labelledby={`activity-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ py: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+};
+
+// Función para obtener propiedades de accesibilidad de pestañas
+const a11yProps = (index: number) => {
+  return {
+    id: `activity-tab-${index}`,
+    'aria-controls': `activity-tabpanel-${index}`,
+  };
+};
 
 const DetalleActividad = () => {
   const theme = useTheme();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { usuario } = useAuth();
+  
+  // Estado para las pestañas
+  const [tabValue, setTabValue] = useState(0);
   
   // Estados
   const [actividad, setActividad] = useState<Actividad | null>(null);
-  const [cargando, setCargando] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Estados para documentos
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [cargandoDocumentos, setCargandoDocumentos] = useState(false);
   const [errorDocumentos, setErrorDocumentos] = useState<string | null>(null);
+  
+  // Estados para comentarios
+  const [comentario, setComentario] = useState('');
+  const [enviandoComentario, setEnviandoComentario] = useState(false);
+  const [errorComentario, setErrorComentario] = useState<string | null>(null);
+  
+  // Referencia para el componente de comentarios
+  const comentariosRef = useRef<ComentariosActividadRef>(null);
+
+  // Estilos comunes para las cards
+  const cardStyles = {
+    mb: 3, 
+    border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+    borderRadius: 3,
+    transition: 'all 0.3s ease',
+    backgroundColor: alpha(theme.palette.background.paper, 0.8),
+    backdropFilter: 'blur(10px)',
+    '&:hover': {
+      transform: 'translateY(-4px)',
+      boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.15)}`,
+    }
+  };
+
+  // Estilos para los chips
+  const chipStyles = (color: string) => ({
+    borderRadius: 2,
+    bgcolor: alpha(color, 0.1),
+    color: color,
+    fontWeight: 500,
+    '& .MuiChip-icon': {
+      color: 'inherit'
+    },
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      bgcolor: alpha(color, 0.2),
+    }
+  });
 
   // Cargar los detalles de la actividad
   useEffect(() => {
@@ -66,7 +141,7 @@ const DetalleActividad = () => {
       if (!id) return;
       
       try {
-        setCargando(true);
+        setLoading(true);
         const respuesta = await ActividadesService.getActividadPorId(id);
         console.log("Respuesta completa:", JSON.stringify(respuesta));
         
@@ -82,7 +157,7 @@ const DetalleActividad = () => {
         console.error('Error al cargar actividad:', error);
         setError('No se pudo cargar la información de la actividad');
       } finally {
-        setCargando(false);
+        setLoading(false);
       }
     };
     
@@ -91,7 +166,7 @@ const DetalleActividad = () => {
 
   // Cargar los documentos de la actividad
   useEffect(() => {
-    const cargarDocumentos = async () => {
+    const fetchDocumentos = async () => {
       if (!actividad || !actividad.id) return;
       
       try {
@@ -110,7 +185,7 @@ const DetalleActividad = () => {
     };
     
     if (actividad) {
-      cargarDocumentos();
+      fetchDocumentos();
     }
   }, [actividad]);
 
@@ -202,6 +277,44 @@ const DetalleActividad = () => {
     }
   };
 
+  // Manejar el cambio de pestaña
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+  
+  // Enviar un nuevo comentario
+  const enviarComentario = async () => {
+    if (!comentario.trim() || !id || !usuario) return;
+    
+    try {
+      setEnviandoComentario(true);
+      setErrorComentario(null);
+      
+      await ComentariosService.crearComentario({
+        id_actividad: id,
+        contenido: comentario.trim()
+      });
+      
+      // Limpiar el campo después de enviar
+      setComentario('');
+      
+      // Actualizar la lista de comentarios en tiempo real
+      if (comentariosRef.current) {
+        await comentariosRef.current.cargarComentarios();
+      }
+      
+      // Cambiar a la pestaña de comentarios si no estamos en ella
+      if (tabValue !== 1) {
+        setTabValue(1);
+      }
+    } catch (error: any) {
+      console.error('Error al enviar comentario:', error);
+      setErrorComentario(error.message || 'No se pudo enviar el comentario');
+    } finally {
+      setEnviandoComentario(false);
+    }
+  };
+
   // Renderizar cargando
   const renderizarCargando = () => (
     <Box sx={{ p: 3 }}>
@@ -214,612 +327,506 @@ const DetalleActividad = () => {
           <Skeleton variant="rectangular" height={200} sx={{ borderRadius: '16px', mb: 3 }} />
         </Grid>
       </Grid>
-      <Skeleton variant="rectangular" height={150} sx={{ borderRadius: '16px', mb: 3 }} />
-      <Grid container spacing={3}>
-        {[1, 2, 3].map((i) => (
-          <Grid item xs={12} sm={4} key={i}>
-            <Skeleton variant="rectangular" height={100} sx={{ borderRadius: '16px' }} />
-          </Grid>
-        ))}
-      </Grid>
     </Box>
   );
 
   // Renderizar error
   const renderizarError = () => (
-    <Box sx={{ 
-      p: 5, 
-      textAlign: 'center',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '50vh'
-    }}>
+    <Box sx={{ p: 5, textAlign: 'center' }}>
       <Typography variant="h5" color="error" gutterBottom>
         {error || 'No se pudo cargar la información de la actividad'}
       </Typography>
-      <Button 
-        variant="contained" 
-        startIcon={<ArrowBackIcon />} 
-        onClick={() => navigate(-1)}
-        sx={{ mt: 3 }}
-      >
+      <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
         Volver
       </Button>
     </Box>
   );
 
-  // Renderizar contenido principal
+  // Renderizar contenido
   const renderizarContenido = () => {
     if (!actividad) return null;
 
     return (
-      <Fade in={!cargando} timeout={500}>
-        <Box>
-          {/* Header con fecha y estado */}
-          <Box sx={{ mb: 3 }}>
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} sm={8}>
-                <Card 
-                  elevation={0}
-                  sx={{
-                    height: '100%',
-                    borderRadius: '16px',
-                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.primary.main, 0.02)})`,
-                    border: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
-                    boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.05)}`,
-                    position: 'relative',
-                    overflow: 'hidden',
-                    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: `0 12px 40px ${alpha(theme.palette.common.black, 0.08)}`,
-                    },
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '5px',
-                      background: `linear-gradient(to right, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                    }
-                  }}
-                >
-                  <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-                      <Chip 
-                        icon={<CheckCircleIcon />}
-                        label={obtenerEtiquetaEstado(actividad.estado)} 
-                        size="medium"
-                        sx={{ 
-                          bgcolor: alpha(obtenerColorEstado(actividad.estado), 0.12),
-                          color: obtenerColorEstado(actividad.estado),
-                          fontWeight: 600,
-                          borderRadius: '8px',
-                          height: '32px',
-                          '& .MuiChip-icon': {
-                            color: 'inherit',
-                            fontSize: '1.2rem'
-                          }
-                        }}
-                      />
-                      <Chip 
-                        icon={<CalendarTodayIcon />}
-                        label={actividad.fecha ? formatearFecha(actividad.fecha) : 'Fecha no especificada'}
-                        size="medium"
-                        sx={{ 
-                          bgcolor: alpha(theme.palette.success.main, 0.12),
-                          color: theme.palette.success.main,
-                          fontWeight: 600,
-                          borderRadius: '8px',
-                          height: '32px',
-                          '& .MuiChip-icon': {
-                            color: 'inherit',
-                            fontSize: '1.2rem'
-                          }
-                        }}
-                      />
-                    </Box>
-
-                    <Typography variant="h4" sx={{ 
-                      fontWeight: 700, 
-                      mb: 2,
-                      letterSpacing: '-0.02em',
-                      color: alpha(theme.palette.text.primary, 0.95),
-                      lineHeight: 1.3
-                    }}>
-                      {actividad.descripcion || 'Actividad sin título'}
-                    </Typography>
-
-                    <Typography variant="body1" sx={{ 
-                      color: alpha(theme.palette.text.secondary, 0.9),
-                      lineHeight: 1.6,
-                      mb: 2
-                    }}>
-                      {actividad.descripcion || 'Sin descripción'}
-                    </Typography>
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1, flexWrap: 'wrap' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <ScheduleIcon sx={{ fontSize: 18, color: theme.palette.info.main }} />
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.info.main }}>
-                          {actividad.hora_inicio || actividad.hora_fin ? 
-                            `${formatearHora(actividad.hora_inicio || '-')} - ${formatearHora(actividad.hora_fin || '-')} (${calcularDuracion()})` : 
-                            '- (0 horas)'}
-                        </Typography>
-                      </Box>
-
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <DomainIcon sx={{ fontSize: 18, color: theme.palette.warning.main }} />
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.warning.main }}>
-                          {actividad.proyectos && actividad.proyectos.nombre ? actividad.proyectos.nombre : 'Sin proyecto'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} sm={4}>
-                <Card 
-                  elevation={0}
-                  sx={{
-                    height: '100%',
-                    borderRadius: '16px',
-                    background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.05)}, ${alpha(theme.palette.info.main, 0.02)})`,
-                    border: `1px solid ${alpha(theme.palette.info.main, 0.08)}`,
-                    boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.05)}`,
-                    position: 'relative',
-                    overflow: 'hidden',
-                    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '5px',
-                      background: `linear-gradient(to right, ${theme.palette.info.main}, ${theme.palette.info.light})`,
-                    }
-                  }}
-                >
-                  <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                      <Avatar
-                        sx={{
-                          width: 64,
-                          height: 64,
-                          fontSize: '1.8rem',
-                          fontWeight: 700,
-                          bgcolor: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                          boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
-                          border: `2px solid ${alpha(theme.palette.background.paper, 0.8)}`
-                        }}
-                      >
-                        {actividad.usuarios && actividad.usuarios.nombres ? actividad.usuarios.nombres[0] : ''}
-                        {actividad.usuarios && actividad.usuarios.appaterno ? actividad.usuarios.appaterno[0] : ''}
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, lineHeight: 1.2 }}>
-                          {actividad.usuarios ? 
-                            `${actividad.usuarios.nombres || ''} ${actividad.usuarios.appaterno || ''}` : 
-                            'Usuario no asignado'}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: theme.palette.text.secondary, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <PersonIcon sx={{ fontSize: 16 }} />
-                          {actividad.usuarios && actividad.usuarios.nombre_usuario ? actividad.usuarios.nombre_usuario : 'Sin usuario'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    
-                    <Divider sx={{ my: 1.5, borderColor: alpha(theme.palette.divider, 0.1) }} />
-                    
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="body2" sx={{ 
-                        color: theme.palette.text.secondary, 
-                        mb: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1
-                      }}>
-                        <EmailIcon sx={{ fontSize: 16 }} />
-                        {(actividad.usuarios as any)?.email || 'Sin correo registrado'}
-                      </Typography>
-                      
-                      <Typography variant="body2" sx={{ 
-                        color: theme.palette.text.secondary,
-                        mb: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1
-                      }}>
-                        <FolderIcon sx={{ fontSize: 16 }} />
-                        {actividad.id_tipo_actividad || 'Sin tipo'}
-                      </Typography>
-                      
-                      <Typography variant="body2" sx={{ 
-                        color: theme.palette.text.secondary,
-                        mb: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1
-                      }}>
-                        <InfoIcon sx={{ fontSize: 16 }} />
-                        ID: {actividad.id?.substring(0, 8) || 'N/A'}
-                      </Typography>
-                    </Box>
-                    
-                    <Box sx={{ mt: 'auto', pt: 2 }}>
-                      <Chip 
-                        label={`Creado: ${actividad.fecha_creacion ? format(new Date(actividad.fecha_creacion), 'dd/MM/yyyy HH:mm') : 'Fecha no disponible'}`}
-                        size="small"
-                        sx={{ 
-                          width: '100%',
-                          justifyContent: 'flex-start',
-                          bgcolor: alpha(theme.palette.primary.main, 0.08),
-                          color: theme.palette.primary.main,
-                          fontWeight: 600,
-                          '& .MuiChip-label': {
-                            px: 1
-                          }
-                        }}
-                      />
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </Box>
-
-          {/* Información detallada en tarjetas */}
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h5" sx={{ 
-              mb: 2, 
-              fontWeight: 700,
-              color: theme.palette.text.primary,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1
-            }}>
-              <DescriptionIcon sx={{ color: theme.palette.primary.main }} />
-              Detalles de la Actividad
-            </Typography>
-            
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
-                <Card elevation={0} sx={{
-                  borderRadius: '16px',
-                  border: `1px solid ${alpha(theme.palette.success.main, 0.1)}`,
-                  background: `linear-gradient(145deg, ${alpha(theme.palette.success.main, 0.05)}, ${alpha(theme.palette.success.main, 0.02)})`,
-                  height: '100%',
-                  transition: 'transform 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: `0 8px 24px ${alpha(theme.palette.success.main, 0.15)}`,
-                  }
-                }}>
-                  <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                      <Avatar
-                        sx={{
-                          bgcolor: alpha(theme.palette.success.main, 0.1),
-                          color: theme.palette.success.main,
-                          width: 48,
-                          height: 48,
-                        }}
-                      >
-                        <CalendarTodayIcon />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: theme.palette.success.main }}>
-                          Fecha
-                        </Typography>
-                        <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
-                          {actividad.fecha ? formatearFecha(actividad.fecha) : 'No especificada'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                          {actividad.fecha ? 
-                            `${format(new Date(actividad.fecha), 'EEEE', { locale: es })}` : 
-                            'Fecha no disponible'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Card elevation={0} sx={{
-                  borderRadius: '16px',
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`,
-                  background: `linear-gradient(145deg, ${alpha(theme.palette.info.main, 0.05)}, ${alpha(theme.palette.info.main, 0.02)})`,
-                  height: '100%',
-                  transition: 'transform 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: `0 8px 24px ${alpha(theme.palette.info.main, 0.15)}`,
-                  }
-                }}>
-                  <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                      <Avatar
-                        sx={{
-                          bgcolor: alpha(theme.palette.info.main, 0.1),
-                          color: theme.palette.info.main,
-                          width: 48,
-                          height: 48,
-                        }}
-                      >
-                        <AccessTimeIcon />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: theme.palette.info.main }}>
-                          Horario
-                        </Typography>
-                        <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
-                          {actividad.hora_inicio && actividad.hora_fin ? 
-                            `${formatearHora(actividad.hora_inicio)} - ${formatearHora(actividad.hora_fin)}` : 
-                            'No especificado'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                          Duración: {calcularDuracion()}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Card elevation={0} sx={{
-                  borderRadius: '16px',
-                  border: `1px solid ${alpha(theme.palette.warning.main, 0.1)}`,
-                  background: `linear-gradient(145deg, ${alpha(theme.palette.warning.main, 0.05)}, ${alpha(theme.palette.warning.main, 0.02)})`,
-                  height: '100%',
-                  transition: 'transform 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: `0 8px 24px ${alpha(theme.palette.warning.main, 0.15)}`,
-                  }
-                }}>
-                  <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                      <Avatar
-                        sx={{
-                          bgcolor: alpha(theme.palette.warning.main, 0.1),
-                          color: theme.palette.warning.main,
-                          width: 48,
-                          height: 48,
-                        }}
-                      >
-                        <FolderIcon />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: theme.palette.warning.main }}>
-                          Proyecto
-                        </Typography>
-                        <Typography variant="body1" sx={{ 
-                          fontWeight: 600, 
-                          fontSize: '1.1rem',
-                          wordBreak: 'break-word'
-                        }}>
-                          {actividad.proyectos && actividad.proyectos.nombre ? 
-                            actividad.proyectos.nombre : 
-                            'No especificado'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                          ID: {actividad.id_proyecto ? actividad.id_proyecto.substring(0, 8) : 'N/A'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </Box>
-
-          {/* Sistema de actividad (si existe) */}
-          {actividad.sistema && (
-            <Box sx={{ mb: 4 }}>
-              <Card 
-                elevation={0}
-                sx={{
-                  borderRadius: '16px',
-                  background: `linear-gradient(to right, ${alpha(theme.palette.grey[500], 0.05)}, ${alpha(theme.palette.grey[500], 0.02)})`,
-                  border: `1px solid ${alpha(theme.palette.grey[500], 0.1)}`,
-                  p: 3
+      <Box>
+        {/* Encabezado de la actividad con información básica */}
+        <Box 
+          sx={{ 
+            p: 2.5, 
+            bgcolor: alpha(theme.palette.primary.main, 0.03),
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            position: 'relative',
+          }}
+        >
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={8}>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  flexWrap: 'wrap',
+                  gap: 0.75,
+                  alignItems: 'center'
                 }}
               >
-                <Typography variant="h6" sx={{ 
-                  mb: 2, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 1,
-                  color: theme.palette.text.primary,
-                  fontWeight: 700
-                }}>
-                  <DomainIcon sx={{ color: theme.palette.secondary.main }} />
-                  Sistema
+                <Chip
+                  icon={<CalendarTodayIcon />}
+                  label={formatearFecha(actividad.fecha)}
+                  size="small"
+                  sx={chipStyles(obtenerColorEstado(actividad.estado))}
+                />
+                
+                <Chip
+                  icon={<AccessTimeIcon />}
+                  label={`${formatearHora(actividad.hora_inicio)} - ${formatearHora(actividad.hora_fin)}`}
+                  size="small"
+                  sx={chipStyles(theme.palette.info.main)}
+                />
+                
+                <Chip
+                  icon={<FolderIcon />}
+                  label={actividad.proyectos?.nombre || 'Sin proyecto'}
+                  size="small"
+                  sx={chipStyles(obtenerColorEstado(actividad.estado))}
+                />
+                
+                <Chip
+                  label={obtenerEtiquetaEstado(actividad.estado)}
+                  size="small"
+                  sx={chipStyles(obtenerColorEstado(actividad.estado))}
+                />
+              </Box>
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: { xs: 'flex-start', md: 'flex-end' },
+              }}>
+                <Typography 
+                  variant="body2" 
+                  color="textSecondary"
+                  sx={{ 
+                    mr: 1,
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <AccessTimeIcon sx={{ fontSize: '1rem', mr: 0.5 }} />
+                  Duración:
                 </Typography>
-                <Typography variant="body1">
-                  {actividad.sistema}
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 600,
+                    color: theme.palette.primary.main
+                  }}
+                >
+                  {calcularDuracion()}
                 </Typography>
+              </Box>
+            </Grid>
+          </Grid>
+        </Box>
+        
+        {/* Sistema de pestañas */}
+        <Box sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider',
+          bgcolor: alpha(theme.palette.background.paper, 0.6),
+        }}>
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            TabIndicatorProps={{
+              style: {
+                backgroundColor: theme.palette.primary.main,
+                height: 3,
+                borderRadius: '3px'
+              }
+            }}
+            sx={{
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.95rem',
+                minHeight: 56,
+                px: 4,
+                color: alpha(theme.palette.text.primary, 0.7),
+                '&.Mui-selected': {
+                  color: theme.palette.primary.main,
+                },
+                '&:hover': {
+                  color: theme.palette.primary.main,
+                  backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                }
+              }
+            }}
+          >
+            <Tab 
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <InfoIcon fontSize="small" />
+                  <span>Detalles</span>
+                </Box>
+              } 
+              {...a11yProps(0)} 
+            />
+            <Tab 
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CommentIcon fontSize="small" />
+                  <span>Comentarios</span>
+                </Box>
+              } 
+              {...a11yProps(1)} 
+            />
+            <Tab 
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AttachFileIcon fontSize="small" />
+                  <span>Documentos</span>
+                </Box>
+              } 
+              {...a11yProps(2)} 
+            />
+          </Tabs>
+        </Box>
+
+        {/* Contenido de cada pestaña */}
+        <Box sx={{ p: 4 }}>
+          <TabPanel value={tabValue} index={0}>
+            <Grid container spacing={3}>
+              {/* Información personal */}
+              <Grid item xs={12}>
+                <Card sx={cardStyles}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography 
+                      variant="h6" 
+                      gutterBottom 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        fontWeight: 600,
+                        mb: 2, 
+                        color: theme.palette.text.primary
+                      }}
+                    >
+                      <PersonIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                      Información del Funcionario
+                    </Typography>
+                    
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                          <Avatar
+                            sx={{ 
+                              bgcolor: theme.palette.primary.main,
+                              width: 40,
+                              height: 40,
+                              mr: 2
+                            }}
+                          >
+                            {actividad.usuarios?.nombres?.charAt(0) || 'U'}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                              {actividad.usuarios?.nombres || ''} {actividad.usuarios?.appaterno || ''}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              {actividad.usuarios?.nombre_usuario ? 'Funcionario' : 'Supervisor'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                          <EmailIcon sx={{ mr: 1, color: theme.palette.text.secondary }} />
+                          <Typography variant="body2">
+                            Correo no disponible
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                          <DomainIcon sx={{ mr: 1, color: theme.palette.text.secondary }} />
+                          <Typography variant="body2">
+                            Departamento no disponible
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Detalles de actividad */}
+              <Grid item xs={12} md={8}>
+                <Card sx={cardStyles}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography 
+                      variant="h6" 
+                      gutterBottom 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        fontWeight: 600,
+                        mb: 2, 
+                        color: theme.palette.text.primary
+                      }}
+                    >
+                      <DescriptionIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                      Detalles de la Actividad
+                    </Typography>
+                    
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                        Descripción:
+                      </Typography>
+                      <Typography variant="body2" paragraph>
+                        {actividad.descripcion || 'Sin descripción'}
+                      </Typography>
+                    </Box>
+                    
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                          Fecha:
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <CalendarTodayIcon sx={{ mr: 1, fontSize: '1.2rem', color: theme.palette.primary.main }} />
+                          <Typography variant="body2">
+                            {formatearFecha(actividad.fecha)}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                          Horario:
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <AccessTimeIcon sx={{ mr: 1, fontSize: '1.2rem', color: theme.palette.primary.main }} />
+                          <Typography variant="body2">
+                            {formatearHora(actividad.hora_inicio)} - {formatearHora(actividad.hora_fin)}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                          Tipo:
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <ScheduleIcon sx={{ mr: 1, fontSize: '1.2rem', color: theme.palette.primary.main }} />
+                          <Typography variant="body2">
+                            {actividad.id_tipo_actividad || 'Tipo de actividad no especificado'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Información del proyecto */}
+              <Grid item xs={12} md={4}>
+                <Card sx={cardStyles}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography 
+                      variant="h6" 
+                      gutterBottom 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        fontWeight: 600,
+                        mb: 2, 
+                        color: theme.palette.text.primary
+                      }}
+                    >
+                      <FolderIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                      Información del Proyecto
+                    </Typography>
+                    
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                        Proyecto:
+                      </Typography>
+                      <Typography 
+                        variant="body2" 
+                        paragraph
+                        component={RouterLink}
+                        to={`/proyecto/${actividad.id_proyecto || ''}`}
+                        sx={{
+                          color: theme.palette.primary.main,
+                          textDecoration: 'none',
+                          '&:hover': {
+                            textDecoration: 'underline'
+                          }
+                        }}
+                      >
+                        {actividad.proyectos?.nombre || 'Sin nombre'}
+                      </Typography>
+                    </Box>
+                    
+                    {actividad.proyectos?.nombre && (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                          Descripción del proyecto:
+                        </Typography>
+                        <Typography variant="body2" paragraph>
+                          Descripción no disponible
+                        </Typography>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={1}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              height: '60vh',
+              position: 'relative'
+            }}>
+              {/* Lista de comentarios con scroll */}
+              <Box sx={{ 
+                flex: 1,
+                overflow: 'auto',
+                mb: 2,
+                pr: 2,
+                mr: -2, // Compensar el padding para el scrollbar
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: 'transparent',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                  borderRadius: '4px',
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.3),
+                  }
+                }
+              }}>
+                {id && <ComentariosActividad idActividad={id} ref={comentariosRef} />}
+              </Box>
+
+              {/* Campo de comentarios fijo en la parte inferior */}
+              <Card 
+                sx={{
+                  ...cardStyles,
+                  mb: 0,
+                  borderBottomLeftRadius: 0,
+                  borderBottomRightRadius: 0,
+                  borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  position: 'sticky',
+                  bottom: 0,
+                  zIndex: 1,
+                  boxShadow: `0 -4px 20px ${alpha(theme.palette.common.black, 0.05)}`
+                }}
+              >
+                <CardContent sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={1}
+                      placeholder="Escribe un comentario..."
+                      variant="outlined"
+                      value={comentario}
+                      onChange={(e) => setComentario(e.target.value)}
+                      error={!!errorComentario}
+                      helperText={errorComentario}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                            boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.1)}`,
+                          },
+                          '&.Mui-focused': {
+                            backgroundColor: alpha(theme.palette.background.paper, 1),
+                            boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.15)}`,
+                          },
+                          '&.Mui-error': {
+                            borderColor: theme.palette.error.main,
+                            backgroundColor: alpha(theme.palette.error.main, 0.05),
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      endIcon={<SendIcon />}
+                      onClick={enviarComentario}
+                      disabled={!comentario.trim() || enviandoComentario}
+                      sx={{ 
+                        minWidth: 'auto',
+                        px: 3,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        boxShadow: 'none',
+                        '&:hover': {
+                          boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.2)}`,
+                        }
+                      }}
+                    >
+                      {enviandoComentario ? 'Enviando...' : 'Enviar'}
+                    </Button>
+                  </Box>
+                </CardContent>
               </Card>
             </Box>
-          )}
+          </TabPanel>
 
-          {/* Documentos de la actividad */}
-          <Box sx={{ mb: 4 }}>
-            <Card
-              elevation={0}
-              sx={{
-                borderRadius: '16px',
-                background: `linear-gradient(to right, ${alpha(theme.palette.primary.main, 0.03)}, ${alpha(theme.palette.primary.main, 0.01)})`,
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
-                overflow: 'hidden'
-              }}
-            >
+          <TabPanel value={tabValue} index={2}>
+            <Card sx={cardStyles}>
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ 
-                  mb: 3, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 1,
-                  color: theme.palette.text.primary,
-                  fontWeight: 700
-                }}>
-                  <AttachFileIcon sx={{ color: theme.palette.primary.main }} />
-                  Documentos Asociados
-                </Typography>
-                
-                <DocumentosSelector
+                <DocumentosSelector 
                   actividadId={actividad.id}
                   documentos={documentos}
-                  onDocumentosChange={setDocumentos}
                   cargando={cargandoDocumentos}
+                  error={errorDocumentos ? errorDocumentos : undefined}
                   disabled={true}
-                  label=""
-                  error={errorDocumentos || undefined}
                 />
               </CardContent>
             </Card>
-          </Box>
-
-          {/* Botones de acción */}
-          <Box sx={{ display: 'flex', gap: 2, mt: 4, justifyContent: 'flex-end' }}>
-            <Button
-              variant="outlined"
-              size="large"
-              startIcon={<ArrowBackIcon />}
-              onClick={() => navigate(-1)}
-              sx={{
-                borderRadius: '10px',
-                py: 1.2,
-                px: 3,
-                textTransform: 'none',
-                fontWeight: 600,
-                borderColor: alpha(theme.palette.divider, 0.3),
-                '&:hover': {
-                  borderColor: theme.palette.primary.main,
-                  backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
-                }
-              }}
-            >
-              Volver
-            </Button>
-          </Box>
+          </TabPanel>
         </Box>
-      </Fade>
+      </Box>
     );
   };
 
   return (
-    <Box sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
-      {/* Breadcrumb */}
-      <Box
-        sx={{
-          display: 'flex',
-          mb: 3,
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'flex-start' : 'center',
-          gap: isMobile ? 2 : 0
-        }}
-      >
-        <Breadcrumbs
-          separator={<NavigateNextIcon fontSize="small" />}
-          aria-label="breadcrumb"
+    <Container maxWidth="xl">
+      <Box sx={{ pb: 4, pt: 2 }}>
+        <Paper
+          elevation={0}
           sx={{
-            '& .MuiBreadcrumbs-ol': {
-              alignItems: 'center',
-            }
+            borderRadius: '24px',
+            overflow: 'hidden',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
+            backgroundColor: alpha(theme.palette.background.paper, 0.9),
+            backdropFilter: 'blur(20px)',
           }}
         >
-          <Link
-            component={RouterLink}
-            to="/"
-            color="inherit"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              textDecoration: 'none',
-              color: theme.palette.text.secondary,
-              fontWeight: 500,
-              '&:hover': {
-                color: theme.palette.primary.main,
-              }
-            }}
-          >
-            <HomeIcon sx={{ mr: 0.5, fontSize: 20 }} />
-            Inicio
-          </Link>
-          <Link
-            component={RouterLink}
-            to="/revision-actividades"
-            color="inherit"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              textDecoration: 'none',
-              color: theme.palette.text.secondary,
-              fontWeight: 500,
-              '&:hover': {
-                color: theme.palette.primary.main,
-              }
-            }}
-          >
-            <AssignmentIcon sx={{ mr: 0.5, fontSize: 20 }} />
-            Revisión de Actividades
-          </Link>
-          <Typography
-            color="text.primary"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              fontWeight: 600,
-            }}
-          >
-            Detalle de Actividad
-          </Typography>
-        </Breadcrumbs>
-
-        {isMobile && actividad && (
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', width: '100%' }}>
-            <IconButton
-              size="small"
-              onClick={() => navigate(-1)}
-              sx={{
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                color: theme.palette.primary.main,
-                '&:hover': {
-                  bgcolor: alpha(theme.palette.primary.main, 0.2),
-                }
-              }}
-            >
-              <ArrowBackIcon />
-            </IconButton>
-            <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ flex: 1 }}>
-              {actividad.descripcion || 'Detalle de actividad'}
-            </Typography>
-          </Box>
-        )}
+          {loading ? renderizarCargando() : error ? renderizarError() : renderizarContenido()}
+        </Paper>
       </Box>
-      
-      {/* Contenido principal */}
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: '16px',
-          overflow: 'hidden',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
-        }}
-      >
-        {cargando ? renderizarCargando() : error ? renderizarError() : renderizarContenido()}
-      </Paper>
-    </Box>
+    </Container>
   );
 };
 

@@ -2,6 +2,7 @@
 // Este servicio maneja la lógica de negocio para proyectos
 
 import * as proyectoModel from '../models/proyecto.model'
+import * as usuarioModel from '../models/usuario.model'
 import { ProyectoCrear, ProyectoActualizar } from '../types/proyecto.types'
 
 // Obtener un proyecto por ID
@@ -76,4 +77,9 @@ export const desasignarProyectoDeUsuario = async (usuarioId: string, proyectoId:
   }
   
   return await proyectoModel.desasignarProyectoDeUsuario(usuarioId, proyectoId)
+}
+
+// Obtener usuarios asignados a un proyecto
+export const obtenerUsuariosDeProyecto = async (proyectoId: string) => {
+  return await proyectoModel.obtenerUsuariosDeProyecto(proyectoId);
 }

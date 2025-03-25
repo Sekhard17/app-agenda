@@ -56,6 +56,18 @@ const TiposActividad: React.FC = () => {
     color: '#3f51b5',
     activo: true,
   });
+  const [errors, setErrors] = useState({
+    nombre: false,
+    descripcion: false,
+  });
+  const [errorMessages, setErrorMessages] = useState({
+    nombre: '',
+    descripcion: '',
+  });
+  const [touched, setTouched] = useState({
+    nombre: false,
+    descripcion: false,
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const { enqueueSnackbar } = useSnackbar();
 
@@ -75,11 +87,14 @@ const TiposActividad: React.FC = () => {
     cargarTipos();
   }, []);
 
-  // Filtrar tipos de actividad basado en el término de búsqueda
   const tiposFiltrados = tipos.filter(tipo =>
     tipo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     tipo.descripcion?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const isFormValid = () => {
+    return formData.nombre.trim().length >= 3 && formData.descripcion.trim().length >= 3;
+  };
 
   const handleOpenDialog = (tipo?: TipoActividad) => {
     if (tipo) {
@@ -101,6 +116,14 @@ const TiposActividad: React.FC = () => {
       });
       setEditingId(null);
     }
+    setErrors({
+      nombre: false,
+      descripcion: false,
+    });
+    setTouched({
+      nombre: false,
+      descripcion: false,
+    });
     setOpenDialog(true);
   };
 
@@ -114,6 +137,50 @@ const TiposActividad: React.FC = () => {
       activo: true,
     });
     setEditingId(null);
+    setErrors({
+      nombre: false,
+      descripcion: false,
+    });
+    setTouched({
+      nombre: false,
+      descripcion: false,
+    });
+  };
+
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    setFormData({ ...formData, [field]: value });
+  };
+
+  const handleBlur = (field: keyof FormData) => {
+    setTouched({ ...touched, [field]: true });
+    
+    if (field === 'nombre' || field === 'descripcion') {
+      const value = formData[field];
+      const isEmpty = value.trim() === '';
+      const isTooShort = value.trim().length < 3;
+      
+      setErrors({ 
+        ...errors, 
+        [field]: isEmpty || isTooShort
+      });
+      
+      if (isEmpty) {
+        setErrorMessages({
+          ...errorMessages,
+          [field]: `El ${field} es obligatorio`
+        });
+      } else if (isTooShort) {
+        setErrorMessages({
+          ...errorMessages,
+          [field]: `El ${field} debe tener al menos 3 caracteres`
+        });
+      } else {
+        setErrorMessages({
+          ...errorMessages,
+          [field]: ''
+        });
+      }
+    }
   };
 
   const handleSubmit = async () => {
@@ -323,14 +390,12 @@ const TiposActividad: React.FC = () => {
   return (
     <Fade in={true} timeout={800}>
       <Box>
-        {/* Encabezado */}
         <Box
           sx={{
             position: 'relative',
             mb: 4
           }}
         >
-          {/* Header Content */}
           <Box sx={{ mb: 4 }}>
             <Box sx={{ 
               display: 'flex', 
@@ -338,7 +403,6 @@ const TiposActividad: React.FC = () => {
               alignItems: 'center',
               mb: 3
             }}>
-              {/* Title */}
               <Typography 
                 variant="h4" 
                 sx={{ 
@@ -351,7 +415,6 @@ const TiposActividad: React.FC = () => {
                 Tipos de Actividad
               </Typography>
 
-              {/* Breadcrumb y Botones */}
               <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center',
@@ -642,9 +705,12 @@ const TiposActividad: React.FC = () => {
               <TextField
                 label="Nombre"
                 value={formData.nombre}
-                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                onChange={(e) => handleInputChange('nombre', e.target.value)}
+                onBlur={() => handleBlur('nombre')}
                 fullWidth
                 required
+                error={touched.nombre && errors.nombre}
+                helperText={touched.nombre && errors.nombre ? errorMessages.nombre : ""}
                 variant="outlined"
                 sx={{ 
                   '& .MuiOutlinedInput-root': { 
@@ -658,9 +724,13 @@ const TiposActividad: React.FC = () => {
               <TextField
                 label="Descripción"
                 value={formData.descripcion}
-                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                onChange={(e) => handleInputChange('descripcion', e.target.value)}
+                onBlur={() => handleBlur('descripcion')}
                 fullWidth
                 multiline
+                required
+                error={touched.descripcion && errors.descripcion}
+                helperText={touched.descripcion && errors.descripcion ? errorMessages.descripcion : ""}
                 rows={3}
                 variant="outlined"
                 sx={{ 
@@ -678,7 +748,7 @@ const TiposActividad: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, icono: e.target.value })}
                 fullWidth
                 variant="outlined"
-                helperText="Nombre del icono de Material-UI (ej: AccessTime)"
+                helperText="Nombre del icono de Material-UI (ej: AccessTime) - Opcional"
                 sx={{ 
                   '& .MuiOutlinedInput-root': { 
                     borderRadius: '12px',
@@ -815,6 +885,7 @@ const TiposActividad: React.FC = () => {
             <Button 
               onClick={handleSubmit} 
               variant="contained"
+              disabled={!isFormValid()}
               sx={{ 
                 borderRadius: '10px',
                 px: 3,
@@ -826,6 +897,12 @@ const TiposActividad: React.FC = () => {
                   transform: 'translateY(-1px)',
                 },
                 transition: 'all 0.2s ease-in-out',
+                '&.Mui-disabled': {
+                  background: theme.palette.mode === 'light' 
+                    ? 'linear-gradient(45deg, #e0e0e0 30%, #f5f5f5 90%)'
+                    : 'linear-gradient(45deg, #424242 30%, #616161 90%)',
+                  color: theme.palette.text.disabled,
+                },
               }}
             >
               {editingId ? 'Actualizar' : 'Crear'}

@@ -21,7 +21,8 @@ import {
   Slide,
   CircularProgress,
   Select,
-  MenuItem
+  MenuItem,
+  IconButton
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -42,7 +43,8 @@ import {
   Info as InfoIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
-  Chat as ChatIcon
+  Chat as ChatIcon,
+  FileDownload as FileDownloadIcon
 } from '@mui/icons-material';
 import ProyectosService, { Proyecto } from '../services/proyectos.service';
 import { motion } from 'framer-motion';
@@ -55,6 +57,7 @@ import DocumentosVisualizador from '../components/documentos/DocumentosVisualiza
 import ComentariosActividad from '../components/comentarios/ComentariosActividad';
 import { useAuth } from '../context/AuthContext';
 import ErrorBoundary from '../components/common/ErrorBoundary';
+import InformePorProyectoModal from '../components/InformePorProyectoModal';
 
 // Función para formatear fecha
 const formatearFecha = (fecha: string | Date | null | undefined): string => {
@@ -989,6 +992,7 @@ const DetalleProyecto: React.FC = () => {
   const [modalActividadAbierto, setModalActividadAbierto] = useState<boolean>(false);
   const [refreshActividades, setRefreshActividades] = useState<boolean>(false);
   const [activeActividadId, setActiveActividadId] = useState<string | null>(null);
+  const [informeModalAbierto, setInformeModalAbierto] = useState<boolean>(false);
   
   // Estado para las notificaciones toast
   const [snackbar, setSnackbar] = useState<{
@@ -1303,26 +1307,43 @@ const DetalleProyecto: React.FC = () => {
             ))}
           </Tabs>
           
-          <Tooltip title="Volver a Proyectos" arrow>
-            <Button
-              size="small"
-              onClick={() => navigate('/portal-proyectos')}
-              startIcon={<ArrowBackIcon />}
-              sx={{
-                ml: 2,
-                color: theme.palette.text.secondary,
-                '&:hover': {
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Tooltip title="Exportar informe" arrow>
+              <IconButton
+                size="small"
+                onClick={() => setInformeModalAbierto(true)}
+                sx={{
                   color: theme.palette.primary.main,
-                  bgcolor: alpha(theme.palette.primary.main, 0.08)
-                },
-                textTransform: 'none',
-                fontSize: '0.9rem',
-                fontWeight: 500
-              }}
-            >
-              Volver
-            </Button>
-          </Tooltip>
+                  mr: 1,
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.primary.main, 0.08)
+                  }
+                }}
+              >
+                <FileDownloadIcon />
+              </IconButton>
+            </Tooltip>
+            
+            <Tooltip title="Volver a Proyectos" arrow>
+              <Button
+                size="small"
+                onClick={() => navigate('/portal-proyectos')}
+                startIcon={<ArrowBackIcon />}
+                sx={{
+                  color: theme.palette.text.secondary,
+                  '&:hover': {
+                    color: theme.palette.primary.main,
+                    bgcolor: alpha(theme.palette.primary.main, 0.08)
+                  },
+                  textTransform: 'none',
+                  fontSize: '0.9rem',
+                  fontWeight: 500
+                }}
+              >
+                Volver
+              </Button>
+            </Tooltip>
+          </Box>
         </Box>
 
         {/* Contenido principal */}
@@ -1380,6 +1401,14 @@ const DetalleProyecto: React.FC = () => {
           proyectoNombre={proyecto?.nombre}
         />
       </Dialog>
+      
+      {/* Modal para exportar informe del proyecto */}
+      <InformePorProyectoModal
+        open={informeModalAbierto}
+        onClose={() => setInformeModalAbierto(false)}
+        proyectoId={id || ''}
+        proyectoNombre={proyecto?.nombre}
+      />
       
       {/* Snackbar para notificaciones */}
       <Snackbar 

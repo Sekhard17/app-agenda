@@ -361,28 +361,6 @@ const Supervisados: React.FC = () => {
                       <ViewModuleIcon />
                     </IconButton>
                   </Tooltip>
-
-                  <Zoom in={true} style={{ transitionDelay: '300ms' }}>
-                    <Button
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      sx={{
-                        borderRadius: '12px',
-                        px: 2,
-                        py: 1,
-                        ml: 1,
-                        boxShadow: '0 4px 12px rgba(63, 81, 181, 0.2)',
-                        background: 'linear-gradient(45deg, #3f51b5 30%, #5c6bc0 90%)',
-                        '&:hover': {
-                          boxShadow: '0 6px 16px rgba(63, 81, 181, 0.3)',
-                          transform: 'translateY(-2px)',
-                        },
-                        transition: 'all 0.2s ease-in-out',
-                      }}
-                    >
-                      Asignar Supervisado
-                    </Button>
-                  </Zoom>
                 </Box>
               </Box>
             </Box>

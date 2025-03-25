@@ -42,6 +42,8 @@ import {
 import { useNavigate, Link } from 'react-router-dom';
 import { ThemeContext } from '../context/ThemeContext';
 import InformeSupervisadoModal from '../components/InformeSupervisadoModal';
+import InformePorFechasModal from '../components/InformePorFechasModal';
+import InformePorProyectoModal from '../components/InformePorProyectoModal';
 
 // Interfaces para los elementos del menú
 interface SubMenuItem {
@@ -194,6 +196,10 @@ const MainLayout = () => {
   
   // Estado para controlar la apertura de la modal de informes por supervisado
   const [openInformeSupervisadoModal, setOpenInformeSupervisadoModal] = useState(false);
+  // Estado para controlar la apertura de la modal de informes por fechas
+  const [openInformePorFechasModal, setOpenInformePorFechasModal] = useState(false);
+  // Estado para controlar la apertura de la modal de informes por proyecto
+  const [openInformePorProyectoModal, setOpenInformePorProyectoModal] = useState(false);
   
   // Funciones para actualizar el estado y guardarlo en localStorage
   const toggleActividadesMenu = () => {
@@ -259,8 +265,20 @@ const MainLayout = () => {
 
   // Manejar la apertura de la modal de informes por supervisado
   const handleOpenInformeSupervisadoModal = (event: React.MouseEvent) => {
-    event.preventDefault(); // Prevenir la navegación
+    event.preventDefault();
     setOpenInformeSupervisadoModal(true);
+  };
+
+  // Manejar la apertura de la modal de informes por fechas
+  const handleOpenInformePorFechasModal = (event: React.MouseEvent) => {
+    event.preventDefault();
+    setOpenInformePorFechasModal(true);
+  };
+  
+  // Manejar la apertura de la modal de informes por proyecto
+  const handleOpenInformePorProyectoModal = (event: React.MouseEvent) => {
+    event.preventDefault();
+    setOpenInformePorProyectoModal(true);
   };
 
   // Elementos del menú de administración (común para ambos roles)
@@ -268,12 +286,12 @@ const MainLayout = () => {
 
   // Elementos del menú para supervisores
   const userMenuItems: MenuItem[] = usuario?.rol === 'supervisor' ? [
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { 
       text: 'Gestión de Actividades', 
       icon: <AssignmentIcon />, 
       path: '/actividades',
       subItems: [
-        { text: 'Asignar Actividades', path: '/actividades/asignar' },
         { text: 'Revisar Actividades', path: '/revision-actividades' },
       ] 
     },
@@ -293,9 +311,8 @@ const MainLayout = () => {
       path: '/informes',
       subItems: [
         { text: 'Por Supervisado', path: '/informes/supervisados', onClick: handleOpenInformeSupervisadoModal },
-        { text: 'Por Fecha', path: '/informes/fecha' },
-        { text: 'Por Proyecto', path: '/informes/proyecto' },
-        { text: 'Exportar a Excel', path: '/informes/exportar' },
+        { text: 'Por Fecha', path: '/informes/fecha', onClick: handleOpenInformePorFechasModal },
+        { text: 'Por Proyecto', path: '/informes/proyecto', onClick: handleOpenInformePorProyectoModal },
       ] 
     },
     { text: 'Supervisados', icon: <PeopleIcon />, path: '/supervisados' },
@@ -973,6 +990,20 @@ const MainLayout = () => {
       <InformeSupervisadoModal 
         open={openInformeSupervisadoModal} 
         onClose={() => setOpenInformeSupervisadoModal(false)} 
+      />
+
+      {/* Modal de Informes por Fechas */}
+      <InformePorFechasModal
+        open={openInformePorFechasModal}
+        onClose={() => setOpenInformePorFechasModal(false)}
+      />
+      
+      {/* Modal de Informes por Proyecto */}
+      <InformePorProyectoModal
+        open={openInformePorProyectoModal}
+        onClose={() => setOpenInformePorProyectoModal(false)}
+        proyectoId=""
+        showProyectoSelector={true}
       />
     </Box>
   );

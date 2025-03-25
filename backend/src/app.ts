@@ -19,6 +19,7 @@ import tiposActividadRoutes from './routes/tipos-actividad.routes'
 import informesRoutes from './routes/informes.routes'
 import comentariosRoutes from './routes/comentarios.routes'
 import recursosRoutes from './routes/recursos.routes'
+import emailRoutes from './routes/email.routes'
 
 // Inicializar la aplicación
 const app = express()
@@ -44,6 +45,7 @@ app.use('/api/tipos-actividad', tiposActividadRoutes)
 app.use('/api/informes', informesRoutes)
 app.use('/api/comentarios', comentariosRoutes)
 app.use('/api/recursos', recursosRoutes)
+app.use('/api/email', emailRoutes)
 
 // Ruta de prueba
 app.get('/api/health', (req, res) => {
