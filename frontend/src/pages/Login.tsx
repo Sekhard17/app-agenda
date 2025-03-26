@@ -180,7 +180,7 @@ const Login = () => {
             <Fade in={showElements} timeout={1200}>
               <Box
                 component="img"
-                src={mode === 'light' ? '/src/assets/images/logo_servicios.png' : '/src/assets/images/logo_servicios2.png'}
+                src={mode === 'light' ? './src/assets/images/logo_servicios.png' : './src/assets/images/logo_servicios2.png'}
                 alt="Logo"
                 sx={{
                   width: isMobile ? '80%' : '60%',

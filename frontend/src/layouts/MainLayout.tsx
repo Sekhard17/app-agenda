@@ -348,7 +348,7 @@ const MainLayout = () => {
             >
               <Box
                 component="img"
-                src={mode === 'light' ? '/src/assets/images/logo_servicios.png' : '/src/assets/images/logo_servicios2.png'}
+                src={mode === 'light' ? './src/assets/images/logo_servicios.png' : './src/assets/images/logo_servicios2.png'}
                 alt="Logo"
                 sx={{
                   height: 40,
@@ -688,7 +688,7 @@ const MainLayout = () => {
         >
           <Box 
             component="img"
-            src={mode === 'light' ? '/src/assets/images/logo_servicios.png' : '/src/assets/images/logo_servicios2.png'}
+            src={mode === 'light' ? './src/assets/images/logo_servicios.png' : './src/assets/images/logo_servicios2.png'}
             alt="Logo"
             sx={{
               height: open ? 80 : 45,
